@@ -149,7 +149,9 @@
                                 <span class="badge bg-info text-dark">@q.KnowledgePoint</span>
                             </div>
                             <div class="card-body">
-                                <p class="card-text lead mb-3" style="white-space: pre-wrap;">@q.Content</p>
+                                <div class="card-text lead mb-3" style="white-space: pre-wrap;">
+                                    <Study.Shared.MathJaxContent Content="@q.Content" />
+                                </div>
                                 
                                 @if (!string.IsNullOrEmpty(q.Options))
                                 {
@@ -168,7 +170,8 @@
                                                 foreach (var opt in opts)
                                                 {
                                                     <div class="list-group-item list-group-item-action border-0">
-                                                        <span class="fw-bold me-2">@label.</span> @opt
+                                                        <span class="fw-bold me-2">@label.</span> 
+                                                        <span style="display: inline-block;"><Study.Shared.MathJaxContent Content="@opt" /></span>
                                                     </div>
                                                     label++;
                                                 }
@@ -184,7 +187,9 @@
                                     <div class="collapse mt-2" id="answerCollapse_@qIndex">
                                         <div class="card card-body bg-success bg-opacity-10 border-success">
                                             <h6 class="text-success fw-bold">标准答案：</h6>
-                                            <p class="mb-0 text-dark">@q.CorrectAnswer</p>
+                                            <p class="mb-0 text-dark">
+                                                <Study.Shared.MathJaxContent Content="@q.CorrectAnswer" />
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -260,6 +265,7 @@
                 Console.WriteLine($"Error loading config: {ex.Message}");
             }
         }
+        await JS.InvokeVoidAsync("renderMathJax");
     }
 
     private async Task SwitchMode(string mode)
@@ -295,6 +301,12 @@
             questions = await Http.GetFromJsonAsync<List<QuestionItem>>($"/api/practice/paper/{pid}") ?? new List<QuestionItem>();
             paperId = pid;
             viewMode = "detail";
+            
+            // Log for debugging
+            foreach (var q in questions)
+            {
+                await JS.InvokeVoidAsync("console.log", $"[DEBUG] Practice Question {q.QuestionId} Content:", q.Content);
+            }
         }
         catch (Exception ex)
         {
@@ -339,6 +351,11 @@
             if (questions.Count > 0)
             {
                 viewMode = "detail";
+                // Log for debugging
+                foreach (var q in questions)
+                {
+                    await JS.InvokeVoidAsync("console.log", $"[DEBUG] Generated Question {q.QuestionId} Content:", q.Content);
+                }
             }
         }
         catch (Exception ex)

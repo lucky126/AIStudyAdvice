@@ -35,6 +35,7 @@ namespace Study.Services
         // User Logic
         public async Task<User?> LoginAsync(string username, string passwordHash)
         {
+            username = username.ToLower();
             var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
             if (user == null || user.PasswordHash != passwordHash) return null;
             if (!user.IsActive) throw new Exception("账户已被停用");
@@ -47,6 +48,10 @@ namespace Study.Services
 
         public async Task<User> RegisterAsync(string username, string passwordHash, string nickname, string inviteCode)
         {
+            username = username.ToLower();
+            if (!username.Contains("@"))
+                throw new Exception("用户名必须是邮箱格式");
+
             if (await _db.Users.AnyAsync(u => u.Username == username))
                 throw new Exception("用户名已存在");
 

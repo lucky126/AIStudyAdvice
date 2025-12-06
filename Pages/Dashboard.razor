@@ -244,6 +244,7 @@
                 Console.WriteLine($"Error loading config: {ex.Message}");
             }
         }
+        await JS.InvokeVoidAsync("renderMathJax");
     }
 
     private void GoPractice() => Nav.NavigateTo("/practice");

@@ -43,7 +43,7 @@
                     <span class="mx-2">|</span>
                     <span class="fw-bold text-dark">@subject</span>
                     <span class="mx-2">|</span>
-                    <span class="text-muted">@textbookVersion</span>
+                    <span class="fw-bold text-dark">@textbookVersion</span>
                 }
                 else
                 {
@@ -71,13 +71,20 @@
     private bool isLoggedIn = false;
     private string username = "";
 
-    protected override async Task OnInitializedAsync()
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthStateTask { get; set; }
+
+    protected override async Task OnParametersSetAsync()
     {
-        var state = await AuthStateProvider.GetAuthenticationStateAsync();
-        isLoggedIn = state.User.Identity?.IsAuthenticated ?? false;
-        if (isLoggedIn)
+        if (AuthStateTask != null)
         {
-            username = state.User.Identity?.Name ?? "";
+            var state = await AuthStateTask;
+            isLoggedIn = state.User.Identity?.IsAuthenticated ?? false;
+            if (isLoggedIn)
+            {
+                var nicknameClaim = state.User.FindFirst("Nickname");
+                username = nicknameClaim?.Value ?? state.User.Identity?.Name ?? "";
+            }
         }
     }
 
@@ -94,6 +101,12 @@
         {
             try
             {
+                // Load Auth State from LocalStorage
+                if (AuthStateProvider is Study.Services.CustomAuthenticationStateProvider customAuth)
+                {
+                    await customAuth.LoadStateAsync();
+                }
+
                 var cfg = await JS.InvokeAsync<Config>("loadConfig");
                 grade = cfg.grade;
                 subject = cfg.subject ?? "";

@@ -1,0 +1,77 @@
+@inject IJSRuntime JS
+@using System.Text.RegularExpressions
+
+<div @ref="container" class="@Class" style="@Style"></div>
+
+@code {
+    [Parameter] public string Content { get; set; } = "";
+    [Parameter] public string Class { get; set; } = "";
+    [Parameter] public string Style { get; set; } = "";
+
+    private ElementReference container;
+    private bool shouldRender = true;
+
+    protected override bool ShouldRender() => shouldRender;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Whenever the component renders (after parameters change), update content and typeset
+        if (!string.IsNullOrEmpty(Content))
+        {
+            try 
+            {
+                // Try to fix missing delimiters for mixed text/math content
+                var processedContent = FixMathContent(Content);
+                
+                // Encode content to prevent HTML tag interpretation (e.g. <m)
+                // We assume Content is raw text with LaTeX, not HTML
+                var encoded = System.Net.WebUtility.HtmlEncode(processedContent);
+                await JS.InvokeVoidAsync("setMathContent", container, encoded);
+            }
+            catch (Exception ex)
+            {
+                // Ignore JS disconnected errors during navigation
+                Console.WriteLine($"MathJax render error: {ex.Message}");
+            }
+        }
+    }
+
+    private string FixMathContent(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return input;
+
+        // If already has delimiters, assume it's well-formed and don't touch it
+        if (input.Contains("$") || input.Contains("\\(") || input.Contains("\\["))
+            return input;
+
+        // Check if it contains math-like characters that suggest it needs formatting
+        // We look for backslashes (LaTeX commands) or common math operators
+        bool hasMath = input.Contains("\\") || input.Contains("<") || input.Contains(">") || 
+                      input.Contains("=") || input.Contains("^");
+        
+        if (!hasMath) return input;
+
+        // Regex to match potential math segments
+        // We match sequences that are NOT:
+        // - CJK Unified Ideographs (4E00-9FFF)
+        // - CJK Symbols and Punctuation (3000-303F)
+        // - Fullwidth Forms (FF00-FFEF) (e.g. ，：？)
+        // - Newlines
+        // This allows ASCII, Greek, Latin-1 Supplement (like ²), etc. to be grouped as math.
+        return Regex.Replace(input, @"([^\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\r\n]+)", m => {
+            if (string.IsNullOrWhiteSpace(m.Value)) return m.Value;
+            
+            var val = m.Value;
+            var trimmed = val.Trim();
+            
+            // Skip pure whitespace
+            if (string.IsNullOrEmpty(trimmed)) return val;
+            
+            // Preserve leading/trailing spaces outside the math delimiter
+            var startSpace = val.Substring(0, val.IndexOf(trimmed));
+            var endSpace = val.Substring(val.LastIndexOf(trimmed) + trimmed.Length);
+            
+            return $"{startSpace}\\({trimmed}\\){endSpace}";
+        });
+    }
+}

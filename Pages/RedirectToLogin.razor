@@ -1,0 +1,15 @@
+@inject NavigationManager Nav
+@code {
+    protected override void OnInitialized()
+    {
+        var uri = Nav.Uri;
+        if (uri.ToLower().Contains("/admin"))
+        {
+            Nav.NavigateTo("/admin/login", true);
+        }
+        else
+        {
+            Nav.NavigateTo("/login", true);
+        }
+    }
+}

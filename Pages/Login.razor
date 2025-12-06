@@ -1,4 +1,5 @@
 @page "/login"
+@attribute [AllowAnonymous]
 @layout Study.Shared.EmptyLayout
 @inject Study.Services.AuthService Auth
 @inject AuthenticationStateProvider AuthStateProvider
@@ -9,7 +10,7 @@
     <div class="card border-0 shadow-sm" style="width: 350px;">
         <div class="card-body p-4">
             <div class="text-center mb-4">
-                <h4 class="fw-bold text-primary">学习助手</h4>
+                <h4 class="fw-bold text-primary">智能学习分析系统</h4>
                 <p class="text-muted small">用户登录</p>
             </div>
             @if (!string.IsNullOrEmpty(error))
@@ -52,13 +53,14 @@
             if (user != null)
             {
                 var customAuth = (Study.Services.CustomAuthenticationStateProvider)AuthStateProvider;
-                await customAuth.UpdateAuthenticationState(new Study.Services.UserSession
+                await customAuth.UpdateAuthenticationState(new UserSession
                 {
                     Username = user.Username,
-                    UserId = user.Username, 
-                    Role = "User"
+                    Role = "User",
+                    UserId = user.Id.ToString(),
+                    Nickname = user.Nickname
                 });
-                Nav.NavigateTo("/");
+                Nav.NavigateTo("/", true);
             }
             else
             {
