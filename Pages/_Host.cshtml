@@ -1,0 +1,36 @@
+@page "/"
+@using Microsoft.AspNetCore.Components.Web
+@namespace Study.Pages
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="~/" />
+    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
+    <link href="css/site.css" rel="stylesheet" />
+    <link href="Study.styles.css" rel="stylesheet" />
+    <link rel="icon" type="image/png" href="favicon.png"/>
+    <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
+</head>
+<body>
+    <component type="typeof(App)" render-mode="ServerPrerendered" />
+
+    <div id="blazor-error-ui">
+        <environment include="Staging,Production">
+            发生错误，应用可能需要刷新后才能继续响应。
+        </environment>
+        <environment include="Development">
+            出现未处理的异常，详细信息请查看浏览器开发者工具。
+        </environment>
+        <a href="" class="reload">刷新</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="_framework/blazor.server.js"></script>
+    <script src="js/site.js?v=2"></script>
+</body>
+</html>

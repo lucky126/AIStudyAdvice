@@ -1,0 +1,126 @@
+@page "/"
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>首页</PageTitle>
+
+<div class="container mt-4">
+    <h3>请选择年级与学科</h3>
+    
+    <div class="mb-4">
+        <label class="form-label text-muted mb-3">年级</label>
+        <div class="selection-grid">
+            @for (int i = 1; i <= 9; i++)
+            {
+                var g = i;
+                <div class="selection-card @(Grade == g ? "active" : "")" @onclick="() => SetGrade(g)">
+                    <span class="grade-num">@g</span>
+                    <span class="grade-label">年级</span>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="mb-4">
+        <label class="form-label text-muted mb-3">学科</label>
+        <div class="selection-grid">
+            @foreach (var s in availableSubjects)
+            {
+                <div class="selection-card subject-card @(subject == s ? "active" : "")" @onclick="() => subject = s">
+                    <span class="subject-name">@s</span>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="mb-4">
+        <label class="form-label text-muted mb-3">教材版本</label>
+        <div class="selection-grid">
+            @foreach (var t in textbookVersions)
+            {
+                <div class="selection-card subject-card @(textbookVersion == t ? "active" : "")" @onclick="() => textbookVersion = t">
+                    <span class="subject-name">@t</span>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="d-grid gap-2 col-md-6 mx-auto mt-5">
+        <button class="btn btn-primary btn-lg rounded-pill" @onclick="Start">
+            开始学习 <span class="oi oi-arrow-right ms-2" aria-hidden="true"></span>
+        </button>
+    </div>
+
+    @if (errorMsg != null)
+    {
+        <p class="text-danger mt-3 text-center">@errorMsg</p>
+    }
+</div>
+
+@code {
+    private int Grade { get; set; } = 1;
+    private string subject = "数学";
+    private string textbookVersion = "人教版";
+    private string? errorMsg;
+    private List<string> availableSubjects = new() { "数学", "语文", "英语" };
+    private List<string> textbookVersions = new() { "人教版", "北京版", "外研版" };
+
+    private void SetGrade(int g)
+    {
+        Grade = g;
+        UpdateSubjects();
+    }
+
+    private void UpdateSubjects()
+    {
+        availableSubjects = new List<string> { "数学", "语文", "英语" };
+        if (Grade >= 7) availableSubjects.Add("道德与法治");
+        if (Grade >= 8) availableSubjects.Add("物理");
+
+        if (!availableSubjects.Contains(subject))
+        {
+            subject = availableSubjects.First();
+        }
+    }
+
+    private async Task Start()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("saveConfig", Grade, subject, textbookVersion);
+            Nav.NavigateTo("/dashboard", true);
+        }
+        catch
+        {
+            errorMsg = "保存失败，请重试";
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var cfg = await JS.InvokeAsync<Config>("loadConfig");
+                if (cfg.grade > 0)
+                {
+                    Grade = cfg.grade;
+                    UpdateSubjects();
+                    if (!string.IsNullOrEmpty(cfg.subject) && availableSubjects.Contains(cfg.subject))
+                    {
+                        subject = cfg.subject;
+                    }
+                    if (!string.IsNullOrEmpty(cfg.textbookVersion) && textbookVersions.Contains(cfg.textbookVersion))
+                    {
+                        textbookVersion = cfg.textbookVersion;
+                    }
+                    StateHasChanged();
+                }
+            }
+            catch { }
+        }
+    }
+    
+    private class Config { public int grade { get; set; } public string? subject { get; set; } public string? textbookVersion { get; set; } }
+}

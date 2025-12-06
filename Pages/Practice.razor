@@ -1,0 +1,389 @@
+@page "/practice"
+@inject IJSRuntime JS
+@inject HttpClient Http
+@inject NavigationManager Nav
+@using System.Text.Json
+
+<PageTitle>专项练习</PageTitle>
+
+<div class="container mt-3">
+    @if (!initialized)
+    {
+        <p>正在加载...</p>
+    }
+    else if (string.IsNullOrEmpty(subject) || grade == 0)
+    {
+        <div class="alert alert-warning">请先在首页选择年级与学科</div>
+    }
+    else
+    {
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <button class="nav-link @(viewMode == "generate" ? "active" : "")" @onclick="@(() => SwitchMode("generate"))">生成练习</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link @(viewMode == "history" ? "active" : "")" @onclick="@(() => SwitchMode("history"))">历史记录</button>
+            </li>
+        </ul>
+
+        @if (viewMode == "generate")
+        {
+            <div class="card mt-3">
+                <div class="card-header">选择知识点</div>
+                <div class="card-body">
+                    @if (weakPoints.Count == 0)
+                    {
+                        <div class="alert alert-info">暂无薄弱知识点，请先上传作业</div>
+                    }
+                    else
+                    {
+                        @foreach (var kp in weakPoints)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="kp.Checked" />
+                                <label class="form-check-label">@kp.Name (@string.Format("{0:P2}", kp.Acc))</label>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-12">
+                    <label class="form-label">题型与数量设置</label>
+                    <div class="d-flex gap-3 align-items-center flex-wrap">
+                        @foreach (var type in questionTypes)
+                        {
+                            <div class="card p-2 shadow-sm" style="min-width: 150px;">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" @bind="type.IsSelected" id="@("type_" + type.Name)" />
+                                    <label class="form-check-label fw-bold" for="@("type_" + type.Name)">@type.Name</label>
+                                </div>
+                                @if (type.IsSelected)
+                                {
+                                    <div class="input-group input-group-sm mt-2">
+                                        <span class="input-group-text">数量</span>
+                                        <input type="number" class="form-control" @bind="type.Count" min="1" max="10" />
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="col-12 mt-3">
+                <button class="btn btn-primary w-100" @onclick="Generate" disabled="@isGenerating">
+                    @if (isGenerating)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        <span>生成中，请稍候...</span>
+                    }
+                    else
+                    {
+                        <span>生成练习</span>
+                    }
+                </button>
+            </div>
+            </div>
+        }
+        else if (viewMode == "history")
+        {
+            @if (historyList == null)
+            {
+                <p>正在加载记录...</p>
+            }
+            else if (historyList.Count == 0)
+            {
+                <div class="alert alert-info">暂无练习记录</div>
+            }
+            else
+            {
+                <div class="list-group">
+                    @foreach (var item in historyList)
+                    {
+                        <button class="list-group-item list-group-item-action" @onclick="@(() => LoadPaper(item.PaperId))">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">@item.Subject @item.Grade 年级</h5>
+                                <small>@item.CreateTime.ToString("yyyy-MM-dd HH:mm")</small>
+                            </div>
+                            <p class="mb-1">题目数量: @item.Count</p>
+                        </button>
+                    }
+                </div>
+            }
+        }
+        else if (viewMode == "detail")
+        {
+            <button class="btn btn-outline-secondary mb-3" @onclick="@(() => SwitchMode("history"))">
+                <i class="bi bi-arrow-left"></i> 返回列表
+            </button>
+        }
+
+        @if (questions.Count > 0 && (viewMode == "generate" || viewMode == "detail"))
+        {
+            <div class="card mt-3 border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom-0 pt-3">
+                    <h5 class="card-title text-primary fw-bold">
+                        <i class="bi bi-file-text me-2"></i>专项练习试卷
+                    </h5>
+                </div>
+                <div class="card-body">
+                    @for (int i = 0; i < questions.Count; i++)
+                    {
+                        var q = questions[i];
+                        var qIndex = i + 1;
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="badge bg-primary rounded-pill me-2">第 @qIndex 题</span>
+                                    <span class="badge bg-secondary">@q.QuestionType</span>
+                                </div>
+                                <span class="badge bg-info text-dark">@q.KnowledgePoint</span>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text lead mb-3" style="white-space: pre-wrap;">@q.Content</p>
+                                
+                                @if (!string.IsNullOrEmpty(q.Options))
+                                {
+                                    <div class="list-group mb-3">
+                                        @{
+                                            var opts = q.GetOptionsList();
+                                            // Check if content already contains options to avoid duplication
+                                            // Simple heuristic: if content contains "A." and "B.", we assume it has options
+                                            bool contentHasOptions = !string.IsNullOrEmpty(q.Content) && 
+                                                                    (q.Content.Contains("A.") || q.Content.Contains("A、")) && 
+                                                                    (q.Content.Contains("B.") || q.Content.Contains("B、"));
+                                            
+                                            if (!contentHasOptions)
+                                            {
+                                                char label = 'A';
+                                                foreach (var opt in opts)
+                                                {
+                                                    <div class="list-group-item list-group-item-action border-0">
+                                                        <span class="fw-bold me-2">@label.</span> @opt
+                                                    </div>
+                                                    label++;
+                                                }
+                                            }
+                                        }
+                                    </div>
+                                }
+
+                                <div class="mt-4">
+                                    <button class="btn btn-outline-success btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#answerCollapse_@qIndex" aria-expanded="false" aria-controls="answerCollapse_@qIndex">
+                                        查看答案
+                                    </button>
+                                    <div class="collapse mt-2" id="answerCollapse_@qIndex">
+                                        <div class="card card-body bg-success bg-opacity-10 border-success">
+                                            <h6 class="text-success fw-bold">标准答案：</h6>
+                                            <p class="mb-0 text-dark">@q.CorrectAnswer</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private int grade;
+    private string subject = "";
+    private string textbookVersion = "";
+    private bool initialized = false;
+    private bool isGenerating = false;
+    private string viewMode = "generate"; // generate, history, detail
+
+    private List<KpItem> weakPoints = new();
+    private List<TypeSetting> questionTypes = new()
+    {
+        new TypeSetting { Name = "选择题", Count = 3, IsSelected = true },
+        new TypeSetting { Name = "填空题", Count = 2 },
+        new TypeSetting { Name = "解答题", Count = 1 }
+    };
+    private List<QuestionItem> questions = new();
+    private List<HistoryItem>? historyList;
+    private string paperId = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var cfg = await JS.InvokeAsync<Config>("loadConfig");
+                grade = cfg.grade;
+                subject = cfg.subject ?? "";
+                textbookVersion = cfg.textbookVersion ?? "";
+                initialized = true;
+                StateHasChanged();
+
+                if (string.IsNullOrEmpty(subject) || grade == 0)
+                {
+                    Nav.NavigateTo("/", true);
+                    return;
+                }
+
+                var res = await Http.GetFromJsonAsync<AnalyticsResponse>($"/api/analytics?grade={grade}&subject={subject}");
+                var items = res?.report ?? new List<ReportItem>();
+                weakPoints = items
+                    .Where(r => r.mastery == "不明白" || r.mastery == "了解")
+                    .OrderBy(r => r.accuracy)
+                    .Select(r => new KpItem { Name = r.knowledgePoint, Acc = r.accuracy })
+                    .ToList();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading config: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task SwitchMode(string mode)
+    {
+        viewMode = mode;
+        if (mode == "history")
+        {
+            await LoadHistory();
+        }
+        else if (mode == "generate")
+        {
+            questions.Clear(); // Clear questions when going back to generate
+        }
+    }
+
+    private async Task LoadHistory()
+    {
+        try
+        {
+            historyList = await Http.GetFromJsonAsync<List<HistoryItem>>("/api/practice/history");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading history: {ex.Message}");
+            historyList = new List<HistoryItem>();
+        }
+    }
+
+    private async Task LoadPaper(string pid)
+    {
+        try
+        {
+            questions = await Http.GetFromJsonAsync<List<QuestionItem>>($"/api/practice/paper/{pid}") ?? new List<QuestionItem>();
+            paperId = pid;
+            viewMode = "detail";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading paper: {ex.Message}");
+        }
+    }
+
+    private async Task Generate()
+    {
+        if (isGenerating) return;
+        var points = weakPoints.Where(k => k.Checked).Select(k => k.Name).ToList();
+        if (points.Count == 0) return;
+
+        var specs = questionTypes.Where(t => t.IsSelected).Select(t => $"{t.Name}*{t.Count}").ToList();
+        if (specs.Count == 0) return;
+
+        try
+        {
+            isGenerating = true;
+            StateHasChanged();
+
+            var req = new { userId = "demo_user", knowledgePoints = points, questionTypeSpecs = specs, grade = grade, subject = subject, publisher = textbookVersion };
+            var resp = await Http.PostAsJsonAsync("/api/practice/generate", req);
+            if (!resp.IsSuccessStatusCode) 
+            {
+                Console.WriteLine("Generate failed: " + resp.StatusCode);
+                return;
+            }
+            var data = await resp.Content.ReadFromJsonAsync<GenerateResponse>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            paperId = data?.paperId ?? "";
+            questions = data?.questions?.Select(q => new QuestionItem
+            {
+                QuestionId = q.QuestionId,
+                Content = q.Content,
+                KnowledgePoint = q.KnowledgePoint,
+                QuestionType = q.QuestionType,
+                CorrectAnswer = q.CorrectAnswer,
+                Options = q.Options
+            }).ToList() ?? new List<QuestionItem>();
+
+            if (questions.Count > 0)
+            {
+                viewMode = "detail";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Generate error: {ex.Message}");
+        }
+        finally
+        {
+            isGenerating = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Submit()
+    {
+        var answers = questions.Select(q => new SubmitItem
+        {
+            QuestionId = q.QuestionId,
+            Content = q.Content,
+            UserAnswer = q.UserAnswer,
+            IsCorrect = !string.IsNullOrWhiteSpace(q.UserAnswer) && !string.IsNullOrWhiteSpace(q.CorrectAnswer) && q.UserAnswer.Trim() == q.CorrectAnswer.Trim(),
+            CorrectAnswer = q.CorrectAnswer,
+            KnowledgePoint = q.KnowledgePoint,
+            QuestionType = q.QuestionType
+        }).ToList();
+
+        var req = new { paperId = paperId, grade = grade, subject = subject, answers };
+        var resp = await Http.PostAsJsonAsync("/api/practice/submit", req);
+        if (!resp.IsSuccessStatusCode) return;
+        Nav.NavigateTo("/dashboard", true);
+    }
+
+    private class Config { public int grade { get; set; } public string? subject { get; set; } public string? textbookVersion { get; set; } }
+    private class AnalyticsResponse { public List<ReportItem> report { get; set; } = new(); }
+    private class ReportItem { public string knowledgePoint { get; set; } = ""; public double accuracy { get; set; } public string mastery { get; set; } = ""; }
+
+    private class KpItem { public string Name { get; set; } = ""; public double Acc { get; set; } public bool Checked { get; set; } }
+    private class TypeSetting { public string Name { get; set; } = ""; public int Count { get; set; } = 1; public bool IsSelected { get; set; } }
+    private class HistoryItem { public string PaperId { get; set; } = ""; public string Subject { get; set; } = ""; public int Grade { get; set; } public DateTime CreateTime { get; set; } public int Count { get; set; } }
+
+    private class GenerateResponse { public string paperId { get; set; } = ""; public List<QuestionItem> questions { get; set; } = new(); }
+    private class QuestionItem 
+    { 
+        public string QuestionId { get; set; } = ""; 
+        public string Content { get; set; } = ""; 
+        public string KnowledgePoint { get; set; } = ""; 
+        public string QuestionType { get; set; } = ""; 
+        public string? CorrectAnswer { get; set; } 
+        public string? UserAnswer { get; set; }
+        public string? Options { get; set; }
+
+        public List<string> GetOptionsList()
+        {
+            if (string.IsNullOrEmpty(Options)) return new List<string>();
+            try 
+            { 
+                return JsonSerializer.Deserialize<List<string>>(Options) ?? new List<string>(); 
+            }
+            catch 
+            { 
+                return new List<string>(); 
+            }
+        }
+    }
+
+    private class SubmitItem { public string QuestionId { get; set; } = ""; public string Content { get; set; } = ""; public string? UserAnswer { get; set; } public bool IsCorrect { get; set; } public string? CorrectAnswer { get; set; } public string KnowledgePoint { get; set; } = ""; public string QuestionType { get; set; } = ""; }
+}
+

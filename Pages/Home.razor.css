@@ -1,0 +1,85 @@
+/* Container for the grid */
+.selection-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px; /* Increased gap for cleaner look */
+}
+
+/* Base Card Style */
+.selection-card {
+    flex: 0 0 auto;
+    width: 90px; /* Slightly larger */
+    height: 90px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    
+    background-color: #ffffff;
+    border: 2px solid transparent; /* Pre-reserve border space to prevent layout shift */
+    border-radius: 16px; /* More rounded */
+    
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    user-select: none;
+    
+    /* Soft shadow for depth */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    
+    /* Text styles */
+    color: #495057;
+}
+
+/* Hover State */
+.selection-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    color: #212529;
+}
+
+/* Active State - The "Highlighter" */
+.selection-card.active {
+    background-color: #0d6efd; /* Bootstrap Primary */
+    border-color: #0d6efd;
+    color: #ffffff;
+    
+    /* Add a glow effect */
+    box-shadow: 0 8px 25px rgba(13, 110, 253, 0.35);
+    transform: translateY(-3px) scale(1.02);
+}
+
+/* Typography for Grade Number */
+.grade-num {
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 2px;
+}
+
+/* Typography for Grade Label */
+.grade-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    opacity: 0.85;
+}
+
+/* Subject Card Specifics */
+.subject-card {
+    width: auto;       /* Allow flexible width */
+    min-width: 100px;  /* Minimum width */
+    padding: 0 24px;   /* Horizontal padding */
+    height: 60px;      /* Shorter height for text-only chips */
+}
+
+.subject-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* Responsive adjustments if needed */
+@media (max-width: 576px) {
+    .selection-grid {
+        justify-content: center; /* Center on mobile */
+    }
+}

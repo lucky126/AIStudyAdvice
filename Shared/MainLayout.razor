@@ -1,0 +1,56 @@
+@inherits LayoutComponentBase
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>智能学习分析系统</PageTitle>
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4 d-flex justify-content-between align-items-center">
+            <span>当前：@(grade > 0 ? $"{grade} 年级，学科：{subject}，教材版本：{textbookVersion}" : "未选择")</span>
+            <a href="/?reselect=1" class="btn btn-link">重新选择</a>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    private int grade = 0;
+    private string subject = "";
+    private string textbookVersion = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var cfg = await JS.InvokeAsync<Config>("loadConfig");
+            grade = cfg.grade;
+            subject = cfg.subject ?? "";
+            textbookVersion = cfg.textbookVersion ?? "";
+            var uri = Nav.Uri;
+            var u = new Uri(uri);
+            var path = u.AbsolutePath.ToLowerInvariant();
+            var hasSelection = !string.IsNullOrEmpty(subject) && grade > 0;
+            var onHome = path == "/";
+            var reselect = u.Query.Contains("reselect=1");
+            if (!hasSelection && !onHome)
+            {
+                Nav.NavigateTo("/", true);
+            }
+            else if (hasSelection && onHome && !reselect)
+            {
+                Nav.NavigateTo("/dashboard", true);
+            }
+            StateHasChanged();
+        }
+    }
+
+    private class Config { public int grade { get; set; } public string? subject { get; set; } public string? textbookVersion { get; set; } }
+}

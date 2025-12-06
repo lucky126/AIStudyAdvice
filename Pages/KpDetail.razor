@@ -1,0 +1,117 @@
+@page "/kp"
+@inject IJSRuntime JS
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<PageTitle>知识点题目</PageTitle>
+
+<div class="container mt-3">
+    @if (!initialized)
+    {
+        <p>正在加载...</p>
+    }
+    else if (string.IsNullOrEmpty(subject) || grade == 0 || string.IsNullOrEmpty(kp))
+    {
+        <div class="alert alert-warning">参数缺失，请返回</div>
+        <a href="/dashboard" class="btn btn-link">返回学习中心</a>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="h5 mb-0">知识点：@kp</span>
+                <a href="/dashboard" class="btn btn-outline-primary btn-sm">返回学习中心</a>
+            </div>
+            <div class="card-body">
+                @if (items.Count == 0)
+                {
+                    <div class="alert alert-info">暂无题目</div>
+                }
+                else
+                {
+                    <div class="d-flex flex-column gap-3">
+                        @foreach (var q in items)
+                        {
+                            var ok = q.IsCorrect == true;
+                            var statusCls = ok ? "bg-success" : "bg-danger";
+                            var statusText = ok ? "正确" : "错误";
+                            <div class="card shadow-sm">
+                                <div class="card-header d-flex align-items-center gap-2">
+                                    <span class="badge bg-secondary">@q.QuestionType</span>
+                                    <span class="badge @statusCls">@statusText</span>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text mb-3">@q.Content</p>
+                                    
+                                    <div class="kp-section answer">
+                                        <div class="section-title">用户作答</div>
+                                        <div class="section-content text-primary">@(string.IsNullOrEmpty(q.UserAnswer) ? "—" : q.UserAnswer)</div>
+                                    </div>
+                                    <div class="kp-section correct">
+                                        <div class="section-title">标准答案</div>
+                                        <div class="section-content text-success">@(string.IsNullOrEmpty(q.CorrectAnswer) ? "—" : q.CorrectAnswer)</div>
+                                    </div>
+                                    <div class="kp-section error">
+                                        <div class="section-title">错误原因</div>
+                                        <div class="section-content text-danger">@(string.IsNullOrEmpty(q.ErrorAnalysis) ? "—" : q.ErrorAnalysis)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private int grade;
+    private string subject = "";
+    private string textbookVersion = "";
+    private string kp = "";
+    private bool initialized = false;
+    private List<QuestionItem> items = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var cfg = await JS.InvokeAsync<Config>("loadConfig");
+                grade = cfg.grade;
+                subject = cfg.subject ?? "";
+                textbookVersion = cfg.textbookVersion ?? "";
+                var uri = Nav.ToAbsoluteUri(Nav.Uri);
+                var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+                if (query.TryGetValue("kp", out var v)) kp = v.ToString();
+                initialized = true;
+                StateHasChanged();
+
+                if (!string.IsNullOrEmpty(subject) && grade > 0 && !string.IsNullOrEmpty(kp))
+                {
+                    var res = await Http.GetFromJsonAsync<List<QuestionItem>>($"/api/questions?grade={grade}&subject={subject}&kp={Uri.EscapeDataString(kp)}");
+                    items = res ?? new List<QuestionItem>();
+                    StateHasChanged();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Load kp failed: {ex.Message}");
+            }
+        }
+    }
+
+    private class Config { public int grade { get; set; } public string? subject { get; set; } public string? textbookVersion { get; set; } }
+    private class QuestionItem
+    {
+        public string QuestionId { get; set; } = "";
+        public string QuestionType { get; set; } = "";
+        public string Content { get; set; } = "";
+        public bool? IsCorrect { get; set; }
+        public string? UserAnswer { get; set; }
+        public string? CorrectAnswer { get; set; }
+        public string ErrorAnalysis { get; set; } = "";
+    }
+}
