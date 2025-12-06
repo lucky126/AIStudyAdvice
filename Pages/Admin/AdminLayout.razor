@@ -1,0 +1,54 @@
+@inherits LayoutComponentBase
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+
+<div class="d-flex" style="min-height: 100vh;">
+    <!-- Sidebar -->
+    <div class="bg-dark text-white p-3 d-flex flex-column" style="width: 250px; position: fixed; top: 0; bottom: 0; left: 0;">
+        <div class="mb-4 text-center py-2">
+            <h4 class="fw-bold m-0">管理后台</h4>
+        </div>
+        <ul class="nav nav-pills flex-column mb-auto gap-2">
+            <li class="nav-item">
+                <NavLink class="nav-link text-white-50" href="/admin" Match="NavLinkMatch.All" ActiveClass="active text-white bg-primary">
+                    <span class="oi oi-dashboard me-2"></span>控制台
+                </NavLink>
+            </li>
+            <li class="nav-item">
+                <NavLink class="nav-link text-white-50" href="/admin/users" ActiveClass="active text-white bg-primary">
+                    <span class="oi oi-people me-2"></span>用户管理
+                </NavLink>
+            </li>
+            <li class="nav-item">
+                <NavLink class="nav-link text-white-50" href="/admin/invitations" ActiveClass="active text-white bg-primary">
+                    <span class="oi oi-key me-2"></span>邀请码管理
+                </NavLink>
+            </li>
+        </ul>
+        <div class="mt-auto pt-3 border-top border-secondary">
+            <div class="d-flex align-items-center justify-content-between mb-3 text-white-50 px-2">
+                <small>管理员</small>
+                <span class="oi oi-person"></span>
+            </div>
+            <button class="btn btn-outline-light w-100 btn-sm" @onclick="Logout">
+                <span class="oi oi-account-logout me-2"></span>退出登录
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-grow-1 bg-light" style="margin-left: 250px;">
+        <div class="container-fluid p-4">
+            @Body
+        </div>
+    </div>
+</div>
+
+@code {
+    private async Task Logout()
+    {
+        var customAuth = (Study.Services.CustomAuthenticationStateProvider)AuthStateProvider;
+        await customAuth.UpdateAuthenticationState(null);
+        Nav.NavigateTo("/admin/login", true);
+    }
+}

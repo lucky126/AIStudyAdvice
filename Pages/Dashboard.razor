@@ -2,6 +2,7 @@
 @inject IJSRuntime JS
 @inject HttpClient Http
 @inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>学习中心</PageTitle>
 
@@ -202,6 +203,7 @@
     private bool initialized = false;
     private bool hasData = false;
     private bool showUpload = false;
+    private string userId = "demo_user";
 
     private List<ReportItem> report = new();
     private AdviceResult? advice;
@@ -212,6 +214,12 @@
         {
             try
             {
+                var state = await AuthStateProvider.GetAuthenticationStateAsync();
+                if (state.User.Identity?.IsAuthenticated ?? false)
+                {
+                    userId = state.User.Identity.Name ?? "demo_user";
+                }
+
                 var cfg = await JS.InvokeAsync<Config>("loadConfig");
                 grade = cfg.grade;
                 subject = cfg.subject ?? "";
@@ -221,7 +229,7 @@
 
                 if (!string.IsNullOrEmpty(subject) && grade > 0)
                 {
-                    var res = await Http.GetFromJsonAsync<AnalyticsResponse>($"/api/analytics?grade={grade}&subject={subject}");
+                    var res = await Http.GetFromJsonAsync<AnalyticsResponse>($"/api/analytics?grade={grade}&subject={subject}&userId={userId}");
                     report = res?.report ?? new List<ReportItem>();
                     hasData = report.Count > 0;
                     StateHasChanged();
@@ -243,7 +251,7 @@
     private async Task OnUploaded()
     {
         showUpload = false;
-        var res = await Http.GetFromJsonAsync<AnalyticsResponse>($"/api/analytics?grade={grade}&subject={subject}");
+        var res = await Http.GetFromJsonAsync<AnalyticsResponse>($"/api/analytics?grade={grade}&subject={subject}&userId={userId}");
         report = res?.report ?? new List<ReportItem>();
         hasData = report.Count > 0;
         StateHasChanged();
@@ -251,7 +259,7 @@
 
     private async Task LoadAdvice()
     {
-        var resp = await Http.PostAsJsonAsync("/api/advice", new { grade, subject });
+        var resp = await Http.PostAsJsonAsync("/api/advice", new { grade, subject, userId });
         if (resp.IsSuccessStatusCode)
         {
             advice = await resp.Content.ReadFromJsonAsync<AdviceResult>(new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });

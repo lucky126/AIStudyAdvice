@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Study.Data;
 using Study.Services;
 using Study.Models;
@@ -8,6 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddControllers();
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthenticationStateProvider>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
@@ -41,7 +45,30 @@ using (var scope = app.Services.CreateScope())
     db.Database.EnsureCreated();
     try
     {       
-       
+        db.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS ""Users"" (
+                ""Id"" serial PRIMARY KEY,
+                ""Username"" text NOT NULL,
+                ""PasswordHash"" text NOT NULL,
+                ""Nickname"" text,
+                ""RegistrationTime"" timestamp with time zone NOT NULL,
+                ""UsedInvitationCode"" text,
+                ""LoginCount"" integer NOT NULL DEFAULT 0,
+                ""LastLoginTime"" timestamp with time zone,
+                ""IsActive"" boolean NOT NULL DEFAULT TRUE
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Users_Username"" ON ""Users"" (""Username"");
+
+            CREATE TABLE IF NOT EXISTS ""InvitationCodes"" (
+                ""Id"" serial PRIMARY KEY,
+                ""Code"" character varying(8) NOT NULL,
+                ""IsUsed"" boolean NOT NULL DEFAULT FALSE,
+                ""UsedByUsername"" text,
+                ""UsedTime"" timestamp with time zone,
+                ""CreatedTime"" timestamp with time zone NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_InvitationCodes_Code"" ON ""InvitationCodes"" (""Code"");
+        ");
     }
     catch (Exception ex)
     {
@@ -54,6 +81,9 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 app.MapGet("/api/config", (int? grade, string? subject) => Results.Ok(new { grade = grade ?? 0, subject = subject ?? "" }));
@@ -137,16 +167,17 @@ app.MapPost("/api/upload", async (AppDbContext db, CozeService coze, UploadDto d
     });
 });
 
-app.MapGet("/api/analytics", async (AppDbContext db, int grade, string subject) =>
+app.MapGet("/api/analytics", async (AppDbContext db, int grade, string subject, string? userId) =>
 {
+    userId ??= "demo_user";
     var stats = await db.KnowledgeStats
-        .Where(k => k.UserId == "demo_user" && k.Grade == grade && k.Subject == subject)
+        .Where(k => k.UserId == userId && k.Grade == grade && k.Subject == subject)
         .OrderBy(k => k.Accuracy)
         .ToListAsync();
 
     return Results.Ok(new
     {
-        userId = "demo_user",
+        userId = userId,
         grade,
         subject,
         report = stats.Select(s => new
@@ -160,10 +191,11 @@ app.MapGet("/api/analytics", async (AppDbContext db, int grade, string subject) 
     });
 });
 
-app.MapGet("/api/questions", async (AppDbContext db, int grade, string subject, string kp) =>
+app.MapGet("/api/questions", async (AppDbContext db, int grade, string subject, string kp, string? userId) =>
 {
+    userId ??= "demo_user";
     var list = await db.Questions
-        .Where(q => q.Grade == grade && q.Subject == subject && q.KnowledgePoint == kp)
+        .Where(q => q.UserId == userId && q.Grade == grade && q.Subject == subject && q.KnowledgePoint == kp)
         .OrderBy(q => q.PaperId)
         .ToListAsync();
 
@@ -296,14 +328,15 @@ app.MapGet("/api/practice/paper/{paperId}", async (AppDbContext db, string paper
 
 app.MapPost("/api/advice", async (AppDbContext db, CozeService coze, AdviceRequest dto) =>
 {
+    var uid = dto.UserId ?? "demo_user";
     var stats = await db.KnowledgeStats
-        .Where(k => k.UserId == "demo_user" && k.Grade == dto.Grade && k.Subject == dto.Subject)
+        .Where(k => k.UserId == uid && k.Grade == dto.Grade && k.Subject == dto.Subject)
         .OrderBy(k => k.Accuracy)
         .Take(10)
         .ToListAsync();
 
     var weakPoints = stats.Select(s => $"{s.KnowledgePoint}:{Math.Round(s.Accuracy, 2)}").ToList();
-    var advice = await coze.GetLearningAdviceAsync("demo_user", dto.Grade, dto.Subject, weakPoints);
+    var advice = await coze.GetLearningAdviceAsync(uid, dto.Grade, dto.Subject, weakPoints);
     return Results.Ok(advice ?? new Study.Services.CozeService.AdviceResult());
 });
 app.MapBlazorHub();
@@ -367,4 +400,4 @@ public record UploadDto(string Base64Image, int Grade, string Subject, string? P
 public record GeneratePracticeDto(string UserId, List<string> KnowledgePoints, List<string> QuestionTypeSpecs, int Grade, string Subject, string? Publisher);
 public record SubmitPracticeDto(string? PaperId, int Grade, string Subject, List<SubmitAnswer> Answers, string? UserId = "demo_user");
 public record SubmitAnswer(string QuestionId, string Content, string? UserAnswer, bool IsCorrect, string? CorrectAnswer, string KnowledgePoint, string QuestionType, string? ErrorAnalysis);
-public record AdviceRequest(int Grade, string Subject);
+public record AdviceRequest(int Grade, string Subject, string? UserId);

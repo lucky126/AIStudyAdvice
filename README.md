@@ -16,10 +16,19 @@ AI 学习助手是一个基于 .NET 9 和 Blazor Server 构建的智能学习辅
 - **可视化反馈**：知识点详情页采用红绿配色直观区分正误，题目解析布局优化，阅读体验更佳。
 - **快捷操作**：学习中心首页集成上传、练习、顾问快捷入口，空状态下智能引导。
 
+### 🔐 管理后台与用户系统 (New)
+
+- **用户体系**：支持用户注册、登录，数据（上传记录、练习历史、学情分析）按用户隔离。
+- **注册机制**：采用邀请码注册机制，有效控制用户准入。
+- **管理后台**：
+  - **用户管理**：查看用户列表，支持停用/启用用户账号。
+  - **邀请码管理**：批量生成邀请码，查看使用状态。
+
 ## 🛠 技术栈
 
 - **框架**: .NET 9.0 (Blazor Server)
 - **数据库**: PostgreSQL (使用 Entity Framework Core)
+- **身份认证**: Blazor Custom Authentication State Provider + Cookie Session
 - **AI 服务**: [Coze (扣子)](https://www.coze.cn/) API
 - **UI 组件**: Bootstrap / Blazor Native / Open Iconic
 
@@ -44,11 +53,15 @@ AI 学习助手是一个基于 .NET 9 和 Blazor Server 构建的智能学习辅
    cp appsettings.Example.json appsettings.json
    ```
    
-   编辑 `appsettings.json`，填入你的 PostgreSQL 连接字符串和 Coze API 密钥：
+   编辑 `appsettings.json`，填入你的 PostgreSQL 连接字符串、Coze API 密钥以及管理员账号配置：
    ```json
    {
      "ConnectionStrings": {
        "Postgres": "Host=localhost;Port=5432;Database=studydb;Username=postgres;Password=your_password"
+     },
+     "Admin": {
+       "Username": "admin",
+       "Password": "（SHA256哈希后的密码）"
      },
      "Coze": {
        "BaseUrl": "https://api.coze.cn/v1",
@@ -59,6 +72,7 @@ AI 学习助手是一个基于 .NET 9 和 Blazor Server 构建的智能学习辅
      }
    }
    ```
+   *注意：默认管理员密码 `admin_password` 的哈希值为 `bUUlwqIfm+HMqeQfOqQC4HZe5fzD5/6jShabFzCuOG4=`*
 
 3. **运行项目**
    ```bash
@@ -72,10 +86,18 @@ AI 学习助手是一个基于 .NET 9 和 Blazor Server 构建的智能学习辅
 
 ## 📖 使用说明
 
-1. **首页配置**：首次进入选择年级和学科，系统将记住你的选择。
-2. **上传试卷**：在学习中心点击“上传作业”，系统将自动解析题目。
-3. **学情分析**：查看知识点掌握情况，点击知识点可进入题目详情页查看错题解析。
-4. **专项练习**：点击“专项练习”基于薄弱点生成强化训练。
+### 用户端
+1. **注册登录**：使用管理员分发的邀请码注册账号。
+2. **首页配置**：首次进入选择年级和学科，系统将记住你的选择。
+3. **上传试卷**：在学习中心点击“上传作业”，系统将自动解析题目。
+4. **学情分析**：查看知识点掌握情况，点击知识点可进入题目详情页查看错题解析。
+5. **专项练习**：点击“专项练习”基于薄弱点生成强化训练。
+
+### 管理端
+1. 访问 `/admin/login` 进入管理后台登录页。
+2. 默认账号：`admin` / `admin_password`（请及时修改配置文件中的密码哈希）。
+3. **邀请码管理**：生成邀请码分发给用户。
+4. **用户管理**：监控用户状态，必要时停用账号。
 
 ## 🤝 贡献
 

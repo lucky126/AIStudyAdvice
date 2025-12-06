@@ -1,0 +1,109 @@
+@page "/admin/users"
+@layout AdminLayout
+@attribute [Authorize(Roles = "Admin")]
+@inject Study.Services.AuthService Auth
+@using Study.Models
+
+<PageTitle>用户管理</PageTitle>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0 fw-bold text-primary"><span class="oi oi-people me-2"></span>用户管理</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">用户名</th>
+                        <th>昵称</th>
+                        <th>邀请码</th>
+                        <th>注册时间</th>
+                        <th>登录次数</th>
+                        <th>最后登录</th>
+                        <th>状态</th>
+                        <th class="text-end pe-4">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in users)
+                    {
+                        <tr>
+                            <td class="ps-4 fw-bold text-dark">@item.Username</td>
+                            <td>@item.Nickname</td>
+                            <td class="font-monospace text-muted">@item.UsedInvitationCode</td>
+                            <td class="small text-muted">@item.RegistrationTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            <td><span class="badge bg-light text-dark border">@item.LoginCount</span></td>
+                            <td class="small text-muted">@(item.LastLoginTime?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "未登录")</td>
+                            <td>
+                                @if (item.IsActive)
+                                {
+                                    <span class="badge bg-success bg-opacity-10 text-success rounded-pill">正常</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill">已停用</span>
+                                }
+                            </td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm @(item.IsActive ? "btn-outline-danger" : "btn-outline-success") rounded-pill px-3"
+                                        @onclick="() => ToggleStatus(item)">
+                                    @(item.IsActive ? "停用" : "启用")
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        @if (totalPages > 1)
+        {
+            <div class="d-flex justify-content-center py-3 border-top">
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => LoadData(currentPage - 1)">上一页</button>
+                        </li>
+                        <li class="page-item disabled">
+                            <span class="page-link text-muted">第 @currentPage 页 / 共 @totalPages 页</span>
+                        </li>
+                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => LoadData(currentPage + 1)">下一页</button>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<User> users = new();
+    private int currentPage = 1;
+    private int pageSize = 15;
+    private int total = 0;
+    private int totalPages => (int)Math.Ceiling((double)total / pageSize);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData(1);
+    }
+
+    private async Task LoadData(int p)
+    {
+        if (p < 1) p = 1;
+        if (totalPages > 0 && p > totalPages) p = totalPages;
+        currentPage = p;
+        var res = await Auth.GetUsersAsync(currentPage, pageSize);
+        users = res.Items;
+        total = res.Total;
+    }
+
+    private async Task ToggleStatus(User user)
+    {
+        await Auth.ToggleUserStatusAsync(user.Id);
+        await LoadData(currentPage); // Reload to reflect changes
+    }
+}

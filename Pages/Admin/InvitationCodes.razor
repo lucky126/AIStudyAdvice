@@ -1,0 +1,112 @@
+@page "/admin/invitations"
+@layout AdminLayout
+@attribute [Authorize(Roles = "Admin")]
+@inject Study.Services.AuthService Auth
+@using Study.Models
+
+<PageTitle>邀请码管理</PageTitle>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 fw-bold text-primary"><span class="oi oi-key me-2"></span>邀请码管理</h5>
+        <div class="d-flex gap-2 align-items-center">
+            <span class="text-muted small">生成数量:</span>
+            <input type="number" class="form-control form-control-sm" style="width: 80px;" @bind="genCount" min="1" max="100" />
+            <button class="btn btn-primary btn-sm" @onclick="Generate" disabled="@isGenerating">
+                @if (isGenerating) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                批量生成
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">邀请码</th>
+                        <th>状态</th>
+                        <th>使用者</th>
+                        <th>使用时间</th>
+                        <th>创建时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in codes)
+                    {
+                        <tr>
+                            <td class="ps-4 font-monospace fw-bold text-dark">@item.Code</td>
+                            <td>
+                                @if (item.IsUsed)
+                                {
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill px-3">已使用</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3">未使用</span>
+                                }
+                            </td>
+                            <td>@(item.UsedByUsername ?? "-")</td>
+                            <td class="small text-muted">@(item.UsedTime?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+                            <td class="small text-muted">@item.CreatedTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        @if (totalPages > 1)
+        {
+            <div class="d-flex justify-content-center py-3 border-top">
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => LoadData(currentPage - 1)">上一页</button>
+                        </li>
+                        <li class="page-item disabled">
+                            <span class="page-link text-muted">第 @currentPage 页 / 共 @totalPages 页</span>
+                        </li>
+                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => LoadData(currentPage + 1)">下一页</button>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<InvitationCode> codes = new();
+    private int currentPage = 1;
+    private int pageSize = 15;
+    private int total = 0;
+    private int totalPages => (int)Math.Ceiling((double)total / pageSize);
+    private int genCount = 10;
+    private bool isGenerating = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData(1);
+    }
+
+    private async Task LoadData(int p)
+    {
+        if (p < 1) p = 1;
+        if (totalPages > 0 && p > totalPages) p = totalPages;
+        currentPage = p;
+        var res = await Auth.GetInvitationCodesAsync(currentPage, pageSize);
+        codes = res.Items;
+        total = res.Total;
+    }
+
+    private async Task Generate()
+    {
+        if (genCount < 1) return;
+        isGenerating = true;
+        await Task.Delay(500); // UI feedback
+        await Auth.GenerateInvitationCodesAsync(genCount);
+        await LoadData(1);
+        isGenerating = false;
+    }
+}

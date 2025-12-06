@@ -2,6 +2,7 @@
 @inject IJSRuntime JS
 @inject HttpClient Http
 @inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>知识点题目</PageTitle>
 
@@ -121,7 +122,9 @@
 
                 if (!string.IsNullOrEmpty(subject) && grade > 0 && !string.IsNullOrEmpty(kp))
                 {
-                    var res = await Http.GetFromJsonAsync<List<QuestionItem>>($"/api/questions?grade={grade}&subject={subject}&kp={Uri.EscapeDataString(kp)}");
+                    var state = await AuthStateProvider.GetAuthenticationStateAsync();
+                    var userId = state.User.Identity?.Name ?? "demo_user";
+                    var res = await Http.GetFromJsonAsync<List<QuestionItem>>($"/api/questions?grade={grade}&subject={subject}&kp={Uri.EscapeDataString(kp)}&userId={userId}");
                     items = res ?? new List<QuestionItem>();
                     StateHasChanged();
                 }

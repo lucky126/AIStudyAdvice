@@ -1,16 +1,33 @@
 @inherits LayoutComponentBase
 @inject IJSRuntime JS
 @inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>智能学习分析系统</PageTitle>
 
 <div class="page-wrapper">
     <!-- Top Header with System Name -->
     <header class="app-header shadow-sm">
-        <div class="container d-flex align-items-center h-100">
+        <div class="container d-flex align-items-center justify-content-between h-100">
             <div class="d-flex align-items-center">
                 <span class="oi oi-bar-chart app-logo me-2"></span>
                 <h1 class="app-title mb-0">智能学习分析系统</h1>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                @if (isLoggedIn)
+                {
+                    <div class="d-flex align-items-center text-secondary">
+                        <span class="oi oi-person me-1"></span>
+                        <span class="fw-bold">@username</span>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger rounded-pill px-3" @onclick="Logout">
+                        <span class="oi oi-account-logout me-1"></span>退出
+                    </button>
+                }
+                else
+                {
+                     <a href="/login" class="btn btn-sm btn-primary rounded-pill px-3">登录</a>
+                }
             </div>
         </div>
     </header>
@@ -51,6 +68,25 @@
     private int grade = 0;
     private string subject = "";
     private string textbookVersion = "";
+    private bool isLoggedIn = false;
+    private string username = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        isLoggedIn = state.User.Identity?.IsAuthenticated ?? false;
+        if (isLoggedIn)
+        {
+            username = state.User.Identity?.Name ?? "";
+        }
+    }
+
+    private async Task Logout()
+    {
+        var customAuth = (Study.Services.CustomAuthenticationStateProvider)AuthStateProvider;
+        await customAuth.UpdateAuthenticationState(null);
+        Nav.NavigateTo("/login", true);
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

@@ -2,7 +2,9 @@
 @inject IJSRuntime JS
 @inject HttpClient Http
 @inject NavigationManager Nav
-@using System.Text.Json
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>专项练习</PageTitle>@using System.Text.Json
 
 <PageTitle>专项练习</PageTitle>
 
@@ -214,6 +216,8 @@
     private List<HistoryItem>? historyList;
     private string paperId = "";
 
+    private string currentUserId = "demo_user";
+
     private void GoBack() => Nav.NavigateTo("/dashboard");
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -222,6 +226,13 @@
         {
             try
             {
+                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                var user = authState.User;
+                if (user.Identity?.IsAuthenticated == true)
+                {
+                    currentUserId = user.Identity.Name ?? "demo_user";
+                }
+
                 var cfg = await JS.InvokeAsync<Config>("loadConfig");
                 grade = cfg.grade;
                 subject = cfg.subject ?? "";
@@ -235,7 +246,7 @@
                     return;
                 }
 
-                var res = await Http.GetFromJsonAsync<AnalyticsResponse>($"/api/analytics?grade={grade}&subject={subject}");
+                var res = await Http.GetFromJsonAsync<AnalyticsResponse>($"/api/analytics?grade={grade}&subject={subject}&userId={currentUserId}");
                 var items = res?.report ?? new List<ReportItem>();
                 weakPoints = items
                     .Where(r => r.mastery == "不明白" || r.mastery == "了解")
@@ -268,7 +279,7 @@
     {
         try
         {
-            historyList = await Http.GetFromJsonAsync<List<HistoryItem>>("/api/practice/history");
+            historyList = await Http.GetFromJsonAsync<List<HistoryItem>>($"/api/practice/history?userId={currentUserId}");
         }
         catch (Exception ex)
         {
@@ -305,7 +316,7 @@
             isGenerating = true;
             StateHasChanged();
 
-            var req = new { userId = "demo_user", knowledgePoints = points, questionTypeSpecs = specs, grade = grade, subject = subject, publisher = textbookVersion };
+            var req = new { userId = currentUserId, knowledgePoints = points, questionTypeSpecs = specs, grade = grade, subject = subject, publisher = textbookVersion };
             var resp = await Http.PostAsJsonAsync("/api/practice/generate", req);
             if (!resp.IsSuccessStatusCode) 
             {
@@ -354,7 +365,7 @@
             QuestionType = q.QuestionType
         }).ToList();
 
-        var req = new { paperId = paperId, grade = grade, subject = subject, answers };
+        var req = new { paperId = paperId, grade = grade, subject = subject, answers, userId = currentUserId };
         var resp = await Http.PostAsJsonAsync("/api/practice/submit", req);
         if (!resp.IsSuccessStatusCode) return;
         Nav.NavigateTo("/dashboard", true);

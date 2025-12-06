@@ -1,0 +1,73 @@
+@page "/login"
+@layout Study.Shared.EmptyLayout
+@inject Study.Services.AuthService Auth
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+@using Study.Services
+
+<div class="d-flex align-items-center justify-content-center min-vh-100 bg-light">
+    <div class="card border-0 shadow-sm" style="width: 350px;">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <h4 class="fw-bold text-primary">学习助手</h4>
+                <p class="text-muted small">用户登录</p>
+            </div>
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <div class="alert alert-danger small">@error</div>
+            }
+            <div class="mb-3">
+                <input type="text" class="form-control" @bind="username" placeholder="用户名" />
+            </div>
+            <div class="mb-3">
+                <input type="password" class="form-control" @bind="password" placeholder="密码" @onkeyup="@Enter" />
+            </div>
+            <button class="btn btn-primary w-100 mb-3" @onclick="DoLogin">登 录</button>
+            <div class="text-center">
+                <a href="/register" class="text-decoration-none small text-muted">没有账号？立即注册</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string username = "";
+    private string password = "";
+    private string error = "";
+
+    private async Task Enter(KeyboardEventArgs e)
+    {
+        if (e.Code == "Enter" || e.Code == "NumpadEnter")
+        {
+            await DoLogin();
+        }
+    }
+
+    private async Task DoLogin()
+    {
+        try
+        {
+            var hash = AuthService.HashPassword(password);
+            var user = await Auth.LoginAsync(username, hash);
+            if (user != null)
+            {
+                var customAuth = (Study.Services.CustomAuthenticationStateProvider)AuthStateProvider;
+                await customAuth.UpdateAuthenticationState(new Study.Services.UserSession
+                {
+                    Username = user.Username,
+                    UserId = user.Username, 
+                    Role = "User"
+                });
+                Nav.NavigateTo("/");
+            }
+            else
+            {
+                error = "用户名或密码错误";
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+}

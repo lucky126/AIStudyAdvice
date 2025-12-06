@@ -1,6 +1,8 @@
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Authorization
 @inject HttpClient Http
 @inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthStateProvider
 
 <div class="card shadow-sm border-0 rounded-3">
     <div class="card-header bg-white border-bottom-0 pt-3 d-flex justify-content-between align-items-center">
@@ -96,7 +98,10 @@
             await stream.CopyToAsync(ms);
             var base64 = Convert.ToBase64String(ms.ToArray());
 
-            var req = new { base64Image = base64, grade = Grade, subject = Subject, publisher = Publisher };
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userId = state.User.Identity?.Name ?? "demo_user";
+
+            var req = new { base64Image = base64, grade = Grade, subject = Subject, publisher = Publisher, userId };
             var resp = await Http.PostAsJsonAsync("/api/upload", req);
             if (!resp.IsSuccessStatusCode)
             {

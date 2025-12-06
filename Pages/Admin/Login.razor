@@ -1,0 +1,73 @@
+@page "/admin/login"
+@layout Study.Shared.EmptyLayout
+@inject Study.Services.AuthService Auth
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+@using Study.Services
+
+<div class="d-flex align-items-center justify-content-center min-vh-100" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <div class="card border-0 shadow-lg" style="width: 400px; border-radius: 1rem; overflow: hidden;">
+        <div class="card-header bg-white border-0 pt-4 pb-0 text-center">
+            <div class="mb-2">
+                <span class="oi oi-lock-locked text-primary fs-1"></span>
+            </div>
+            <h4 class="fw-bold text-dark">管理后台登录</h4>
+            <p class="text-muted small">请输入管理员账号密码</p>
+        </div>
+        <div class="card-body p-4 pt-2">
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <div class="alert alert-danger py-2 small">@error</div>
+            }
+            <div class="mb-3">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0"><span class="oi oi-person"></span></span>
+                    <input type="text" class="form-control bg-light border-start-0" @bind="username" placeholder="用户名" />
+                </div>
+            </div>
+            <div class="mb-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0"><span class="oi oi-key"></span></span>
+                    <input type="password" class="form-control bg-light border-start-0" @bind="password" placeholder="密码" @onkeyup="@Enter" />
+                </div>
+            </div>
+            <button class="btn btn-primary w-100 py-2 fw-bold" @onclick="DoLogin">登 录</button>
+            <div class="mt-3 text-center">
+                <a href="/" class="text-decoration-none text-muted small">返回首页</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string username = "";
+    private string password = "";
+    private string error = "";
+
+    private async Task Enter(KeyboardEventArgs e)
+    {
+        if (e.Code == "Enter" || e.Code == "NumpadEnter")
+        {
+            await DoLogin();
+        }
+    }
+
+    private async Task DoLogin()
+    {
+        var hash = AuthService.HashPassword(password);
+        if (Auth.AdminLogin(username, hash))
+        {
+            var customAuth = (Study.Services.CustomAuthenticationStateProvider)AuthStateProvider;
+            await customAuth.UpdateAuthenticationState(new Study.Services.UserSession
+            {
+                Username = username,
+                Role = "Admin"
+            });
+            Nav.NavigateTo("/admin", true);
+        }
+        else
+        {
+            error = "用户名或密码错误";
+        }
+    }
+}

@@ -1,0 +1,63 @@
+@page "/register"
+@layout Study.Shared.EmptyLayout
+@inject Study.Services.AuthService Auth
+@inject NavigationManager Nav
+@using Study.Services
+
+<div class="d-flex align-items-center justify-content-center min-vh-100 bg-light">
+    <div class="card border-0 shadow-sm" style="width: 350px;">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <h4 class="fw-bold text-success">账号注册</h4>
+                <p class="text-muted small">创建您的学习助手账号</p>
+            </div>
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <div class="alert alert-danger small">@error</div>
+            }
+            <div class="mb-3">
+                <input type="text" class="form-control" @bind="username" placeholder="用户名 (必填)" />
+            </div>
+            <div class="mb-3">
+                <input type="password" class="form-control" @bind="password" placeholder="密码 (必填)" />
+            </div>
+            <div class="mb-3">
+                <input type="text" class="form-control" @bind="nickname" placeholder="昵称 (选填)" />
+            </div>
+            <div class="mb-3">
+                <input type="text" class="form-control" @bind="inviteCode" placeholder="邀请码 (必填)" />
+            </div>
+            <button class="btn btn-success w-100 mb-3" @onclick="DoRegister">注 册</button>
+            <div class="text-center">
+                <a href="/login" class="text-decoration-none small text-muted">已有账号？去登录</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string username = "";
+    private string password = "";
+    private string nickname = "";
+    private string inviteCode = "";
+    private string error = "";
+
+    private async Task DoRegister()
+    {
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(inviteCode))
+        {
+            error = "请填写完整信息";
+            return;
+        }
+        try
+        {
+            var hash = AuthService.HashPassword(password);
+            await Auth.RegisterAsync(username, hash, nickname, inviteCode);
+            Nav.NavigateTo("/login");
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+}
