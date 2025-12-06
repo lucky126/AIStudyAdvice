@@ -23,7 +23,7 @@ builder.Services.AddHttpClient<CozeService>(client =>
     }
 });
 builder.Services.AddScoped<CozeService>();
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:5247") });
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:8099") });
 
 var app = builder.Build();
 

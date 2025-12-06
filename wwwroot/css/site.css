@@ -1,120 +1,211 @@
 @import url('open-iconic/font/css/open-iconic-bootstrap.min.css');
 
+:root {
+    /* 主色调 - 清新蓝 */
+    --primary-color: #4facfe;
+    --primary-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --primary-shadow: rgba(79, 172, 254, 0.3);
+    
+    /* 辅助色 - 活力绿 */
+    --success-color: #43e97b;
+    --success-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    
+    /* 辅助色 - 警告橙 */
+    --warning-color: #f6d365;
+    --warning-gradient: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+    
+    /* 辅助色 - 错误红 */
+    --danger-color: #ff9a9e;
+    --danger-gradient: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+
+    /* 背景色 */
+    --bg-color: #f3f6f9;
+    --card-bg: #ffffff;
+    
+    /* 文本色 */
+    --text-primary: #2d3748;
+    --text-secondary: #718096;
+    
+    /* 圆角与阴影 */
+    --border-radius: 16px;
+    --card-shadow: 0 10px 20px rgba(0,0,0,0.05);
+    --hover-shadow: 0 15px 30px rgba(0,0,0,0.08);
+}
+
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: 'Nunito', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary);
+    font-weight: 700;
 }
 
 h1:focus {
     outline: none;
 }
 
-a, .btn-link {
-    color: #0071c1;
+a {
+    color: var(--primary-color);
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+a:hover {
+    opacity: 0.8;
+}
+
+/* 卡片样式重置 */
+.card {
+    border: none;
+    border-radius: var(--border-radius);
+    background-color: var(--card-bg);
+    box-shadow: var(--card-shadow);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    /* box-shadow: var(--hover-shadow); */
+    /* transform: translateY(-2px); */
+}
+
+.card-header {
+    background-color: transparent;
+    border-bottom: 1px solid rgba(0,0,0,0.03);
+    padding: 1.25rem 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* 按钮样式重置 */
+.btn {
+    border-radius: 50rem; /* Pill shape */
+    padding: 0.5rem 1.5rem;
+    font-weight: 600;
+    border: none;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08);
 }
 
 .btn-primary {
+    background-image: var(--primary-gradient);
     color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
+    box-shadow: 0 4px 15px var(--primary-shadow);
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+    background-image: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%); /* Reverse gradient */
+    color: #fff;
+}
+
+.btn-success {
+    background-image: var(--success-gradient);
+    color: #fff;
+}
+
+.btn-outline-primary {
+    color: #4facfe;
+    border: 2px solid #4facfe;
+    background: transparent;
+    box-shadow: none;
+}
+
+.btn-outline-primary:hover {
+    background-color: #4facfe;
+    color: #fff;
 }
 
 .content {
     padding-top: 1.1rem;
 }
 
-.valid.modified:not([type=checkbox]) {
-    outline: 1px solid #26b050;
+/* 表单控件 */
+.form-control {
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 0.75rem 1rem;
+    background-color: #f8fafc;
+    transition: all 0.2s;
 }
 
-.invalid {
-    outline: 1px solid red;
+.form-control:focus {
+    background-color: #fff;
+    border-color: #4facfe;
+    box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.15);
 }
 
-.validation-message {
-    color: red;
-}
-
-#blazor-error-ui {
-    background: lightyellow;
-    bottom: 0;
-    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
-    display: none;
-    left: 0;
-    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
-    position: fixed;
-    width: 100%;
-    z-index: 1000;
-}
-
-    #blazor-error-ui .dismiss {
-        cursor: pointer;
-        position: absolute;
-        right: 0.75rem;
-        top: 0.5rem;
-    }
-
-.blazor-error-boundary {
-    background: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iNDkiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIG92ZXJmbG93PSJoaWRkZW4iPjxkZWZzPjxjbGlwUGF0aCBpZD0iY2xpcDAiPjxyZWN0IHg9IjIzNSIgeT0iNTEiIHdpZHRoPSI1NiIgaGVpZ2h0PSI0OSIvPjwvY2xpcFBhdGg+PC9kZWZzPjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMCkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMzUgLTUxKSI+PHBhdGggZD0iTTI2My41MDYgNTFDMjY0LjcxNyA1MSAyNjUuODEzIDUxLjQ4MzcgMjY2LjYwNiA1Mi4yNjU4TDI2Ny4wNTIgNTIuNzk4NyAyNjcuNTM5IDUzLjYyODMgMjkwLjE4NSA5Mi4xODMxIDI5MC41NDUgOTIuNzk1IDI5MC42NTYgOTIuOTk2QzI5MC44NzcgOTMuNTEzIDI5MSA5NC4wODE1IDI5MSA5NC42NzgyIDI5MSA5Ny4wNjUxIDI4OS4wMzggOTkgMjg2LjYxNyA5OUwyNDAuMzgzIDk5QzIzNy45NjMgOTkgMjM2IDk3LjA2NTEgMjM2IDk0LjY3ODIgMjM2IDk0LjM3OTkgMjM2LjAzMSA5NC4wODg2IDIzNi4wODkgOTMuODA3MkwyMzYuMzM4IDkzLjAxNjIgMjM2Ljg1OCA5Mi4xMzE0IDI1OS40NzMgNTMuNjI5NCAyNTkuOTYxIDUyLjc5ODUgMjYwLjQwNyA1Mi4yNjU4QzI2MS4yIDUxLjQ4MzcgMjYyLjI5NiA1MSAyNjMuNTA2IDUxWk0yNjMuNTg2IDY2LjAxODNDMjYwLjczNyA2Ni4wMTgzIDI1OS4zMTMgNjcuMTI0NSAyNTkuMzEzIDY5LjMzNyAyNTkuMzEzIDY5LjYxMDIgMjU5LjMzMiA2OS44NjA4IDI1OS4zNzEgNzAuMDg4N0wyNjEuNzk1IDg0LjAxNjEgMjY1LjM4IDg0LjAxNjEgMjY3LjgyMSA2OS43NDc1QzI2Ny44NiA2OS43MzA5IDI2Ny44NzkgNjkuNTg3NyAyNjcuODc5IDY5LjMxNzkgMjY3Ljg3OSA2Ny4xMTgyIDI2Ni40NDggNjYuMDE4MyAyNjMuNTg2IDY2LjAxODNaTTI2My41NzYgODYuMDU0N0MyNjEuMDQ5IDg2LjA1NDcgMjU5Ljc4NiA4Ny4zMDA1IDI1OS43ODYgODkuNzkyMSAyNTkuNzg2IDkyLjI4MzcgMjYxLjA0OSA5My41Mjk1IDI2My41NzYgOTMuNTI5NSAyNjYuMTE2IDkzLjUyOTUgMjY3LjM4NyA5Mi4yODM3IDI2Ny4zODcgODkuNzkyMSAyNjcuMzg3IDg3LjMwMDUgMjY2LjExNiA4Ni4wNTQ3IDI2My41NzYgODYuMDU0N1oiIGZpbGw9IiNGRkU1MDAiIGZpbGwtcnVsZT0iZXZlbm9kZCIvPjwvZz48L3N2Zz4=) no-repeat 1rem/1.8rem, #b32121;
-    padding: 1rem 1rem 1rem 3.7rem;
-    color: white;
-}
-
-    .blazor-error-boundary::after {
-        content: "An error has occurred."
-    }
-
+/* 知识点部分样式优化 */
 .kp-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-    gap: 1rem;
-}
-
-@media (min-width: 1200px) {
-    .kp-grid { grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); }
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
 }
 
 @media (max-width: 576px) {
-    .kp-grid { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-}
-
-.kp-card .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.kp-card .card-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.kp-card .card-text {
-    display: -webkit-box;
-    -webkit-line-clamp: 5;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    word-break: break-word;
+    .kp-grid { grid-template-columns: 1fr; }
 }
 
 .kp-section {
-    padding: 0.75rem;
-    border-radius: 0.5rem;
-    border: 1px solid rgba(0,0,0,.08);
+    padding: 1rem;
+    border-radius: 12px;
     margin-bottom: 1rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.kp-section.answer { 
+    background-color: rgba(79, 172, 254, 0.05); 
+    border-left: 5px solid #4facfe;
+}
+.kp-section.correct { 
+    background-color: rgba(67, 233, 123, 0.05); 
+    border-left: 5px solid #43e97b;
+}
+.kp-section.error { 
+    background-color: rgba(255, 154, 158, 0.05); 
+    border-left: 5px solid #ff9a9e;
 }
 
 .kp-section .section-title {
-    font-size: .85rem;
-    font-weight: 600;
-    margin-bottom: .25rem;
-    color: #6c757d;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+    opacity: 0.7;
 }
 
-.kp-section.answer { border-left: 4px solid #0d6efd; background: rgba(13,110,253,.08); }
-.kp-section.correct { border-left: 4px solid #198754; background: rgba(25,135,84,.08); }
-.kp-section.error   { border-left: 4px solid #dc3545; background: rgba(220,53,69,.08); }
+/* Blazor Error UI */
+#blazor-error-ui {
+    background: #fff3cd;
+    bottom: 0;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+    color: #856404;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}

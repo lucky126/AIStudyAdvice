@@ -18,7 +18,7 @@
     else
     {
         <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <span class="h5 mb-0">知识点：@kp</span>
                 <a href="/dashboard" class="btn btn-outline-primary btn-sm">返回学习中心</a>
             </div>
@@ -29,31 +29,61 @@
                 }
                 else
                 {
-                    <div class="d-flex flex-column gap-3">
+                    <div class="d-flex flex-column gap-4">
+                        @{ int index = 1; }
                         @foreach (var q in items)
                         {
                             var ok = q.IsCorrect == true;
-                            var statusCls = ok ? "bg-success" : "bg-danger";
-                            var statusText = ok ? "正确" : "错误";
-                            <div class="card shadow-sm">
-                                <div class="card-header d-flex align-items-center gap-2">
-                                    <span class="badge bg-secondary">@q.QuestionType</span>
-                                    <span class="badge @statusCls">@statusText</span>
+                            var headerClass = ok ? "bg-success bg-opacity-10 text-success" : "bg-danger bg-opacity-10 text-danger";
+                            var borderClass = ok ? "border-success" : "border-danger";
+                            var statusText = ok ? "回答正确" : "回答错误";
+                            var icon = ok ? "oi-check" : "oi-x";
+
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header @headerClass border-bottom-0 py-3 d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-white text-dark border shadow-sm">@q.QuestionType</span>
+                                        <span class="fw-bold">题目 @(index++)</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-1 fw-bold">
+                                        <span class="oi @icon"></span>
+                                        <span>@statusText</span>
+                                    </div>
                                 </div>
-                                <div class="card-body">
-                                    <p class="card-text mb-3">@q.Content</p>
+                                <div class="card-body p-4">
+                                    <div class="mb-4">
+                                        <h5 class="card-title text-dark mb-3" style="line-height: 1.6;">@q.Content</h5>
+                                    </div>
                                     
-                                    <div class="kp-section answer">
-                                        <div class="section-title">用户作答</div>
-                                        <div class="section-content text-primary">@(string.IsNullOrEmpty(q.UserAnswer) ? "—" : q.UserAnswer)</div>
-                                    </div>
-                                    <div class="kp-section correct">
-                                        <div class="section-title">标准答案</div>
-                                        <div class="section-content text-success">@(string.IsNullOrEmpty(q.CorrectAnswer) ? "—" : q.CorrectAnswer)</div>
-                                    </div>
-                                    <div class="kp-section error">
-                                        <div class="section-title">错误原因</div>
-                                        <div class="section-content text-danger">@(string.IsNullOrEmpty(q.ErrorAnalysis) ? "—" : q.ErrorAnalysis)</div>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="p-3 rounded-3 bg-light border h-100">
+                                                <div class="small text-muted text-uppercase fw-bold mb-2">用户作答</div>
+                                                <div class="fw-bold @(ok ? "text-success" : "text-danger")">
+                                                    @(string.IsNullOrEmpty(q.UserAnswer) ? "—" : q.UserAnswer)
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="p-3 rounded-3 bg-success bg-opacity-10 border border-success border-opacity-25 h-100">
+                                                <div class="small text-success text-uppercase fw-bold mb-2">标准答案</div>
+                                                <div class="fw-bold text-success">
+                                                    @(string.IsNullOrEmpty(q.CorrectAnswer) ? "—" : q.CorrectAnswer)
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @if (!ok && !string.IsNullOrEmpty(q.ErrorAnalysis))
+                                        {
+                                            <div class="col-12">
+                                                <div class="p-3 rounded-3 bg-danger bg-opacity-10 border border-danger border-opacity-25 mt-2">
+                                                    <div class="d-flex align-items-center gap-2 mb-2 text-danger">
+                                                        <span class="oi oi-lightbulb"></span>
+                                                        <span class="small text-uppercase fw-bold">错误解析</span>
+                                                    </div>
+                                                    <div class="text-dark">@q.ErrorAnalysis</div>
+                                                </div>
+                                            </div>
+                                        }
                                     </div>
                                 </div>
                             </div>

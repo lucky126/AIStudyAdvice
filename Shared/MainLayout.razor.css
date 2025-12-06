@@ -1,70 +1,74 @@
-.page {
-    position: relative;
+.page-wrapper {
     display: flex;
     flex-direction: column;
+    min-height: 100vh;
 }
 
-main {
-    flex: 1;
+.app-header {
+    background-color: #ffffff;
+    height: 64px;
+    z-index: 100;
 }
 
+.app-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.app-logo {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+}
+
+.selection-bar {
+    height: 50px;
+    background-color: rgba(255,255,255,0.8);
+    backdrop-filter: blur(10px);
+}
+
+.current-selection {
+    font-size: 0.95rem;
+}
+
+/* Remove old sidebar styles */
 .sidebar {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+    display: none;
 }
 
-.top-row {
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #d6d5d5;
-    justify-content: flex-end;
-    height: 3.5rem;
-    display: flex;
-    align-items: center;
+/* Content area adjustments */
+.content {
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
-    .top-row ::deep a, .top-row .btn-link {
-        white-space: nowrap;
-        margin-left: 1.5rem;
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .app-title {
+        font-size: 1.1rem;
     }
-
-    .top-row a:first-child {
-        overflow: hidden;
-        text-overflow: ellipsis;
+    
+    .selection-bar {
+        height: auto;
     }
-
-@media (max-width: 640.98px) {
-    .top-row:not(.auth) {
-        display: none;
+    
+    .current-selection {
+        font-size: 0.85rem;
+        margin-bottom: 0.5rem;
     }
-
-    .top-row.auth {
-        justify-content: space-between;
+    
+    .selection-bar .container {
+        flex-direction: column;
+        align-items: flex-start !important;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
     }
-
-    .top-row a, .top-row .btn-link {
-        margin-left: 0;
-    }
-}
-
-@media (min-width: 641px) {
-    .page {
-        flex-direction: row;
-    }
-
-    .sidebar {
-        width: 250px;
-        height: 100vh;
-        position: sticky;
-        top: 0;
-    }
-
-    .top-row {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-    }
-
-    .top-row, article {
-        padding-left: 2rem !important;
-        padding-right: 1.5rem !important;
+    
+    .selection-bar .btn {
+        width: 100%;
+        margin-top: 0.25rem;
     }
 }

@@ -2,10 +2,29 @@
 @inject HttpClient Http
 @inject IJSRuntime JS
 
-<div class="card">
-    <div class="card-header">上传作业图片 - 支持 JPG/PNG</div>
+<div class="card shadow-sm border-0 rounded-3">
+    <div class="card-header bg-white border-bottom-0 pt-3 d-flex justify-content-between align-items-center">
+        <h5 class="card-title text-primary fw-bold mb-0">
+            <span class="oi oi-cloud-upload me-2"></span>上传作业图片
+        </h5>
+        @if (OnClose.HasDelegate)
+        {
+            <button type="button" class="btn-close" aria-label="Close" @onclick="OnClose"></button>
+        }
+    </div>
     <div class="card-body">
-        <InputFile OnChange="OnInputFileChange" accept="image/png,image/jpeg" class="form-control mb-3" />
+        <div class="d-flex gap-3 mb-3">
+            <label class="btn btn-outline-secondary flex-grow-1 d-flex flex-column justify-content-center align-items-center py-3" style="border-style: dashed; min-height: 100px;">
+                <span class="oi oi-image mb-2" style="font-size: 1.5rem"></span>
+                <span>相册选择</span>
+                <InputFile OnChange="OnInputFileChange" accept="image/png,image/jpeg" style="display: none" />
+            </label>
+            <label class="btn btn-primary flex-grow-1 d-flex flex-column justify-content-center align-items-center py-3" style="min-height: 100px;">
+                <span class="oi oi-camera-slr mb-2" style="font-size: 1.5rem"></span>
+                <span>直接拍照</span>
+                <InputFile OnChange="OnInputFileChange" accept="image/*" capture="environment" style="display: none" />
+            </label>
+        </div>
 
         @if (selectedFile != null)
         {
@@ -41,6 +60,7 @@
     [Parameter] public string Subject { get; set; } = "数学";
     [Parameter] public string? Publisher { get; set; }
     [Parameter] public EventCallback OnUploaded { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
 
     private string error = "";
     private bool resultOk = false;

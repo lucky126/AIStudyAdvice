@@ -4,18 +4,44 @@
 
 <PageTitle>智能学习分析系统</PageTitle>
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+<div class="page-wrapper">
+    <!-- Top Header with System Name -->
+    <header class="app-header shadow-sm">
+        <div class="container d-flex align-items-center h-100">
+            <div class="d-flex align-items-center">
+                <span class="oi oi-bar-chart app-logo me-2"></span>
+                <h1 class="app-title mb-0">智能学习分析系统</h1>
+            </div>
+        </div>
+    </header>
+
+    <!-- Selection Info Bar -->
+    <div class="selection-bar bg-white border-bottom">
+        <div class="container d-flex justify-content-between align-items-center h-100 py-2">
+            <div class="current-selection text-secondary">
+                <span class="oi oi-book me-2 text-primary"></span>
+                @if (grade > 0)
+                {
+                    <span class="fw-bold text-dark">@grade 年级</span>
+                    <span class="mx-2">|</span>
+                    <span class="fw-bold text-dark">@subject</span>
+                    <span class="mx-2">|</span>
+                    <span class="text-muted">@textbookVersion</span>
+                }
+                else
+                {
+                    <span>未选择课程</span>
+                }
+            </div>
+            <a href="/?reselect=1" class="btn btn-sm btn-outline-primary rounded-pill px-3 transition-btn">
+                <span class="oi oi-loop-circular me-1"></span>切换选择
+            </a>
+        </div>
     </div>
 
-    <main>
-        <div class="top-row px-4 d-flex justify-content-between align-items-center">
-            <span>当前：@(grade > 0 ? $"{grade} 年级，学科：{subject}，教材版本：{textbookVersion}" : "未选择")</span>
-            <a href="/?reselect=1" class="btn btn-link">重新选择</a>
-        </div>
-
-        <article class="content px-4">
+    <!-- Main Content -->
+    <main class="flex-grow-1 bg-light">
+        <article class="content container py-4">
             @Body
         </article>
     </main>
@@ -30,25 +56,53 @@
     {
         if (firstRender)
         {
-            var cfg = await JS.InvokeAsync<Config>("loadConfig");
-            grade = cfg.grade;
-            subject = cfg.subject ?? "";
-            textbookVersion = cfg.textbookVersion ?? "";
-            var uri = Nav.Uri;
-            var u = new Uri(uri);
-            var path = u.AbsolutePath.ToLowerInvariant();
-            var hasSelection = !string.IsNullOrEmpty(subject) && grade > 0;
-            var onHome = path == "/";
-            var reselect = u.Query.Contains("reselect=1");
-            if (!hasSelection && !onHome)
+            try
             {
-                Nav.NavigateTo("/", true);
+                var cfg = await JS.InvokeAsync<Config>("loadConfig");
+                grade = cfg.grade;
+                subject = cfg.subject ?? "";
+                textbookVersion = cfg.textbookVersion ?? "";
+                
+                var uri = Nav.Uri;
+                var u = new Uri(uri);
+                var path = u.AbsolutePath.ToLowerInvariant();
+                var hasSelection = !string.IsNullOrEmpty(subject) && grade > 0;
+                var onHome = path == "/";
+                
+                // If on home but has selection (and not explicitly reselecting), go to dashboard
+                // Note: user might want to stay on home to reselect, but typically we redirect to dashboard
+                // The "Switch Selection" button goes to "/" which allows re-selection.
+                // We should check if we should auto-redirect.
+                // If the user clicked "Switch Selection", they are on "/"
+                // We don't want to bounce them back to dashboard immediately if they just arrived.
+                // However, the previous logic did exactly that unless "?reselect=1".
+                // I'll simplify: If on Home, stay on Home (to allow selection). 
+                // If on other pages and no selection, go Home.
+                
+                if (!hasSelection && !onHome)
+                {
+                    Nav.NavigateTo("/", true);
+                }
+                else if (hasSelection && onHome)
+                {
+                    // If we have selection and are on home, usually we want to go to dashboard.
+                    // But if the user explicitly clicked "Switch Selection" (which goes to /), 
+                    // we should probably let them stay. 
+                    // But how do we know?
+                    // The previous code used "?reselect=1". I should probably keep using that or 
+                    // change the link to "?reselect=1".
+                    
+                    // Let's check the query string
+                     var reselect = u.Query.Contains("reselect=1");
+                     if (!reselect)
+                     {
+                         Nav.NavigateTo("/dashboard", true);
+                     }
+                }
+                
+                StateHasChanged();
             }
-            else if (hasSelection && onHome && !reselect)
-            {
-                Nav.NavigateTo("/dashboard", true);
-            }
-            StateHasChanged();
+            catch {}
         }
     }
 

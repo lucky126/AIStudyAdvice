@@ -7,6 +7,13 @@
 <PageTitle>专项练习</PageTitle>
 
 <div class="container mt-3">
+    <div class="d-flex align-items-center mb-4">
+        <button class="btn btn-outline-secondary rounded-circle me-3" style="width: 40px; height: 40px; padding: 0;" @onclick="GoBack">
+            <span class="oi oi-arrow-left"></span>
+        </button>
+        <h4 class="mb-0 fw-bold">专项练习</h4>
+    </div>
+
     @if (!initialized)
     {
         <p>正在加载...</p>
@@ -199,13 +206,15 @@
     private List<KpItem> weakPoints = new();
     private List<TypeSetting> questionTypes = new()
     {
-        new TypeSetting { Name = "选择题", Count = 3, IsSelected = true },
-        new TypeSetting { Name = "填空题", Count = 2 },
-        new TypeSetting { Name = "解答题", Count = 1 }
+        new TypeSetting { Name = "单选题", IsSelected = true, Count = 5 },
+        new TypeSetting { Name = "填空题", IsSelected = true, Count = 5 },
+        new TypeSetting { Name = "解答题", IsSelected = false, Count = 2 }
     };
     private List<QuestionItem> questions = new();
     private List<HistoryItem>? historyList;
     private string paperId = "";
+
+    private void GoBack() => Nav.NavigateTo("/dashboard");
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
