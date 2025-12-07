@@ -30,8 +30,16 @@ fi
 
 # 3. 安装 Docker Compose (如果未安装)
 if ! command -v docker-compose &> /dev/null; then
-    echo "正在安装 Docker Compose..."
-    sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    # 尝试使用国内镜像加速下载
+    echo "正在通过镜像安装 Docker Compose..."
+    sudo curl -L "https://mirror.ghproxy.com/https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    
+    # 如果镜像失败，尝试官方源
+    if [ ! -f /usr/local/bin/docker-compose ]; then
+        echo "镜像下载失败，尝试官方源..."
+        sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    fi
+    
     sudo chmod +x /usr/local/bin/docker-compose
 else
     echo "Docker Compose 已安装"

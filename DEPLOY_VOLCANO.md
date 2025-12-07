@@ -32,7 +32,13 @@
     yum install -y git
     ```
     
-    克隆项目代码：
+    **国内服务器加速克隆（推荐）：**
+    ```bash
+    git clone https://mirror.ghproxy.com/https://github.com/lucky126/AIStudyAdvice.git
+    cd AIStudyAdvice
+    ```
+    
+    或者使用原始地址（可能会失败）：
     ```bash
     git clone https://github.com/lucky126/AIStudyAdvice.git
     cd AIStudyAdvice
