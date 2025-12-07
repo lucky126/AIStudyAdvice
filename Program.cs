@@ -8,7 +8,19 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
+using Microsoft.AspNetCore.DataProtection;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Persist keys to a directory that is mounted in Docker
+var keysDirectory = new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys"));
+if (!keysDirectory.Exists)
+{
+    keysDirectory.Create();
+}
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(keysDirectory)
+    .SetApplicationName("StudyApp");
 
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();

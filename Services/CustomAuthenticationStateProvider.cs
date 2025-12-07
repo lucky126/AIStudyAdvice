@@ -7,11 +7,13 @@ namespace Study.Services
     public class CustomAuthenticationStateProvider : AuthenticationStateProvider
     {
         private readonly ProtectedLocalStorage _localStorage;
+        private readonly ILogger<CustomAuthenticationStateProvider> _logger;
         private ClaimsPrincipal _anonymous = new ClaimsPrincipal(new ClaimsIdentity());
 
-        public CustomAuthenticationStateProvider(ProtectedLocalStorage localStorage)
+        public CustomAuthenticationStateProvider(ProtectedLocalStorage localStorage, ILogger<CustomAuthenticationStateProvider> logger)
         {
             _localStorage = localStorage;
+            _logger = logger;
         }
 
         public override async Task<AuthenticationState> GetAuthenticationStateAsync()
@@ -46,6 +48,7 @@ namespace Study.Services
                 }
                 else if (userSession != null)
                 {
+                    _logger.LogInformation("User session expired or invalid.");
                     await _localStorage.DeleteAsync("UserSession");
                 }
 
@@ -64,6 +67,7 @@ namespace Study.Services
                 }
                 else if (adminSession != null)
                 {
+                    _logger.LogInformation("Admin session expired or invalid.");
                     await _localStorage.DeleteAsync("AdminSession");
                 }
 
@@ -74,8 +78,9 @@ namespace Study.Services
 
                 return _anonymous;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogWarning($"Authentication state retrieval failed: {ex.Message}");
                 return _anonymous;
             }
         }

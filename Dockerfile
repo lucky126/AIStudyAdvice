@@ -1,4 +1,5 @@
 # Use the official ASP.NET Core runtime image
+FROM node:18-alpine AS node-base
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 WORKDIR /app
 EXPOSE 8080
