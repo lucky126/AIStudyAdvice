@@ -109,6 +109,39 @@ AI 学习助手是一个基于 .NET 9 和 Blazor Server 构建的智能学习辅
 3. **邀请码管理**：生成邀请码分发给用户。
 4. **用户管理**：监控用户状态，必要时停用账号。
 
+## 🐳 Docker 部署
+
+项目支持使用 Docker 和 Docker Compose 进行容器化部署，包含 PostgreSQL 数据库。
+
+### 前置要求
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) 或 Docker Engine
+- Docker Compose
+
+### 部署步骤
+
+1. **修改配置**
+   编辑 `docker-compose.yml`，设置 `COZE_API_KEY` 或在环境变量中设置。
+   ```yaml
+   environment:
+     - Coze__ApiKey=你的Coze_API_Key
+   ```
+
+2. **运行部署脚本**
+   
+   Windows (PowerShell):
+   ```powershell
+   .\deploy.ps1
+   ```
+   
+   Linux / Mac:
+   ```bash
+   chmod +x deploy.sh
+   ./deploy.sh
+   ```
+
+3. **访问应用**
+   启动成功后，访问 `http://localhost:8099`。
+
 ## 🤝 贡献
 
 欢迎提交 Issue 或 Pull Request 来改进这个项目！

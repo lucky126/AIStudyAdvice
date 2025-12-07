@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  web:
+    image: study-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__Postgres=Host=db;Port=5432;Database=studydb;Username=postgres;Password=${DB_PASSWORD:-postgres_secure_pass}
+      - LocalApiUrl=http://localhost:8080
+      - Admin__Username=${ADMIN_USER:-admin}
+      - Admin__Password=${ADMIN_PASSWORD_HASH:-bUUlwqIfm+HMqeQfOqQC4HZe5fzD5/6jShabFzCuOG4=}
+      - Coze__ApiKey=${COZE_API_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres_secure_pass}
+      - POSTGRES_DB=studydb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+volumes:
+  postgres_data:

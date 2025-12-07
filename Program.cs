@@ -32,7 +32,10 @@ builder.Services.AddHttpClient<CozeService>(client =>
     client.Timeout = TimeSpan.FromMinutes(5);
 });
 builder.Services.AddScoped<CozeService>();
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:8099") });
+
+// Configure HttpClient for local API calls
+var localApiUrl = builder.Configuration["LocalApiUrl"] ?? "http://localhost:8080";
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(localApiUrl) });
 
 var app = builder.Build();
 
