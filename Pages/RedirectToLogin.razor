@@ -1,9 +1,23 @@
 @inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+
 @code {
-    protected override void OnAfterRender(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            // 增加延时，给予客户端身份验证状态初始化的时间
+            // 解决 Blazor Server 预渲染期间因无法读取 LocalStorage 而导致的误判重定向循环
+            await Task.Delay(300);
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.Identity?.IsAuthenticated == true)
+            {
+                // 如果用户实际上已认证（LocalStorage 读取成功），则不进行重定向
+                // 路由组件会自动更新页面
+                return;
+            }
+
             var uri = Nav.Uri;
             if (uri.ToLower().Contains("/admin"))
             {

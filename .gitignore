@@ -66,5 +66,6 @@ DEPLOY_VOLCANO.md
 docker-compose.prod.yml
 setup_server.sh
 upload_to_server.ps1
+update_app.sh
 project.tar.gz
 .env
