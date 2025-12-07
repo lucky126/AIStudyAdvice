@@ -291,7 +291,7 @@ namespace Study.Services
         private async Task<string?> ParseCozeStreamResponseAsync(HttpResponseMessage resp)
         {
             var content = await resp.Content.ReadAsStringAsync();
-            Console.WriteLine($"[COZE] Stream raw len: {content.Length}");
+            // Console.WriteLine($"[COZE] Stream raw content (len={content.Length}): {content.Substring(0, Math.Min(500, content.Length))}...");
             
             var lines = content.Split('\n');
             string currentEvent = "";
@@ -316,7 +316,9 @@ namespace Study.Services
                             using var doc = JsonDocument.Parse(data);
                             if (doc.RootElement.TryGetProperty("data", out var dataElem))
                             {
-                                return dataElem.GetString();
+                                var finalData = dataElem.GetString();
+                                Console.WriteLine($"[COZE] Extracted workflow_finished data: {finalData}");
+                                return finalData;
                             }
                         }
                         catch (Exception ex)
@@ -335,7 +337,7 @@ namespace Study.Services
                                 var contentStr = contentElem.GetString();
                                 if (!string.IsNullOrEmpty(contentStr) && contentStr.Contains("\"output\""))
                                 {
-                                    Console.WriteLine($"[COZE] Found output in Message content: {contentStr.Substring(0, Math.Min(50, contentStr.Length))}...");
+                                    Console.WriteLine($"[COZE] Found output in Message content: {contentStr}");
                                     return contentStr;
                                 }
                             }
@@ -355,21 +357,51 @@ namespace Study.Services
             public string summary { get; set; } = string.Empty;
             public string tone { get; set; } = string.Empty;
             public List<string> suggestions { get; set; } = new();
+            public string? debugInput { get; set; }
         }
 
-        public async Task<AdviceResult?> GetLearningAdviceAsync(string userId, int grade, string subject, List<string> weakPoints)
+        public class AdviceInput
+        {
+            public string userId { get; set; } = string.Empty;
+            public string grade { get; set; } = string.Empty;
+            public string subject { get; set; } = string.Empty;
+            public string textbook { get; set; } = string.Empty;
+            public List<AdviceKnowledgeStat> knowledgeStats { get; set; } = new();
+        }
+
+        public class AdviceKnowledgeStat
+        {
+            public string knowledgePoint { get; set; } = string.Empty;
+            public double accuracy { get; set; }
+            public string proficiency { get; set; } = string.Empty;
+            public List<string> errorAnalyses { get; set; } = new();
+        }
+
+        public async Task<AdviceResult?> GetLearningAdviceAsync(AdviceInput input)
         {
             var baseUrl = _configuration["Coze:BaseUrl"] ?? "";
             var workflowId = _configuration["Coze:WorkflowIdAdvice"] ?? "";
             var apiKey = _configuration["Coze:ApiKey"] ?? "";
-            var url = $"{baseUrl.TrimEnd('/')}/workflows/{workflowId}/run";
+            var url = $"{baseUrl.TrimEnd('/')}/workflow/stream_run";
 
-            var prompt = $"为用户:{userId}提供学习建议。年级:{grade}，学科:{subject}，薄弱知识点:{string.Join(";", weakPoints)}。请返回JSON包含summary、tone、suggestions。";
+            var inputJson = JsonSerializer.Serialize(input, new JsonSerializerOptions { WriteIndented = true });
+            // Note: Coze Workflow expects "parameters" to contain the input variable directly if defined as "input" in Start node.
+            // Based on user's curl example:
+            // {
+            //   "workflow_id": "...",
+            //   "parameters": {
+            //     "input": { ... }
+            //   }
+            // }
+            
             var payload = new
             {
-                input_type = "text",
-                prompt
+                workflow_id = workflowId,
+                parameters = new { input = input }
             };
+            
+            // Console.WriteLine($"[COZE_ADVICE] Sending request to {url}");
+            // Console.WriteLine($"[COZE_ADVICE] Input Payload: {JsonSerializer.Serialize(payload)}");
 
             using var req = new HttpRequestMessage(HttpMethod.Post, url)
             {
@@ -380,16 +412,71 @@ namespace Study.Services
             try
             {
                 var resp = await _httpClient.SendAsync(req);
-                resp.EnsureSuccessStatusCode();
-                var result = await resp.Content.ReadFromJsonAsync<AdviceResult>(new JsonSerializerOptions
+                Console.WriteLine($"[COZE_ADVICE] Response status: {resp.StatusCode}");
+                if (!resp.IsSuccessStatusCode)
                 {
-                    PropertyNameCaseInsensitive = true
-                });
+                    var err = await resp.Content.ReadAsStringAsync();
+                    Console.WriteLine($"[COZE_ADVICE] Error: {err}");
+                    return new AdviceResult { debugInput = inputJson, summary = "获取建议失败", suggestions = new List<string> { err } };
+                }
+
+                var innerJson = await ParseCozeStreamResponseAsync(resp);
+                if (string.IsNullOrEmpty(innerJson))
+                {
+                    return new AdviceResult { debugInput = inputJson };
+                }
+
+                AdviceResult result;
+                try 
+                {
+                    // Check if the response is wrapped in an "output" property (nested JSON)
+                    // The Coze stream response "content" might be a JSON object like {"output": "{\"summary\":...}"}
+                    using var doc = JsonDocument.Parse(innerJson);
+                    if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("output", out var outputElem))
+                    {
+                        // The output field itself might be a JSON string that needs another round of parsing
+                        var outputStr = outputElem.GetString();
+                        if (!string.IsNullOrEmpty(outputStr))
+                        {
+                             // Try to parse the inner JSON string
+                             try 
+                             {
+                                 result = JsonSerializer.Deserialize<AdviceResult>(outputStr, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new AdviceResult();
+                             }
+                             catch
+                             {
+                                 // If inner string is not JSON, maybe it's just the summary text?
+                                 // But based on user input, it looks like JSON.
+                                 // Let's assume if it fails, we treat it as summary text if it looks like text?
+                                 // For now, let's stick to the structure we saw.
+                                 result = new AdviceResult { summary = outputStr };
+                             }
+                        }
+                        else
+                        {
+                            result = new AdviceResult();
+                        }
+                    }
+                    else
+                    {
+                        // Fallback: try to deserialize directly (maybe structure changed or it's flat)
+                        result = JsonSerializer.Deserialize<AdviceResult>(innerJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new AdviceResult();
+                    }
+                }
+                catch (Exception jsonEx)
+                {
+                     Console.WriteLine($"[COZE_ADVICE] JSON Parse Error: {jsonEx.Message}");
+                     Console.WriteLine($"[COZE_ADVICE] Bad JSON: {innerJson}");
+                     return new AdviceResult { debugInput = inputJson, summary = "解析建议失败", suggestions = new List<string> { jsonEx.Message, "Raw JSON:", innerJson } };
+                }
+
+                result.debugInput = inputJson;
                 return result;
             }
-            catch
+            catch (Exception ex)
             {
-                return null;
+                Console.WriteLine($"[COZE_ADVICE] Exception: {ex.Message}");
+                return new AdviceResult { debugInput = inputJson, summary = "系统错误", suggestions = new List<string> { ex.Message } };
             }
         }
     }

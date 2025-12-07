@@ -145,7 +145,7 @@
                         </div>
                         <div class="card-body">
                             <div class="p-3 bg-light rounded-3">
-                                <p class="lead fs-6 mb-3">@advice.summary</p>
+                                <p class="lead fs-6 mb-3" style="white-space: pre-wrap;">@advice.summary</p>
                                 <ul class="mb-0 ps-3">
                                     @foreach (var tip in advice.suggestions)
                                     {
@@ -153,6 +153,22 @@
                                     }
                                 </ul>
                             </div>
+                            
+                            @* 
+                            @if (!string.IsNullOrEmpty(advice.debugInput))
+                            {
+                                <div class="mt-3">
+                                    <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#debugInfo" aria-expanded="false" aria-controls="debugInfo">
+                                        显示调试信息
+                                    </button>
+                                    <div class="collapse" id="debugInfo">
+                                        <div class="card card-body bg-light border-0">
+                                            <pre class="mb-0" style="font-size: 0.8rem; white-space: pre-wrap;">@advice.debugInput</pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            *@
                         </div>
                     </div>
                 }
@@ -282,7 +298,7 @@
 
     private async Task LoadAdvice()
     {
-        var resp = await Http.PostAsJsonAsync("/api/advice", new { grade, subject, userId });
+        var resp = await Http.PostAsJsonAsync("/api/advice", new { grade, subject, userId, publisher = textbookVersion });
         if (resp.IsSuccessStatusCode)
         {
             advice = await resp.Content.ReadFromJsonAsync<AdviceResult>(new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
@@ -301,5 +317,5 @@
     private class Config { public int grade { get; set; } public string? subject { get; set; } public string? textbookVersion { get; set; } }
     private class AnalyticsResponse { public List<ReportItem> report { get; set; } = new(); }
     private class ReportItem { public string knowledgePoint { get; set; } = ""; public double accuracy { get; set; } public string mastery { get; set; } = ""; }
-    private class AdviceResult { public string summary { get; set; } = ""; public string tone { get; set; } = ""; public List<string> suggestions { get; set; } = new(); }
+    private class AdviceResult { public string summary { get; set; } = ""; public string tone { get; set; } = ""; public List<string> suggestions { get; set; } = new(); public string? debugInput { get; set; } }
 }

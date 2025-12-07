@@ -328,6 +328,7 @@ app.MapGet("/api/practice/paper/{paperId}", async (AppDbContext db, string paper
 
 app.MapPost("/api/advice", async (AppDbContext db, CozeService coze, AdviceRequest dto) =>
 {
+    Console.WriteLine($"[API_ADVICE] Received request: grade={dto.Grade}, subject={dto.Subject}, user={dto.UserId}, pub={dto.Publisher}");
     var uid = dto.UserId ?? "demo_user";
     var stats = await db.KnowledgeStats
         .Where(k => k.UserId == uid && k.Grade == dto.Grade && k.Subject == dto.Subject)
@@ -335,8 +336,37 @@ app.MapPost("/api/advice", async (AppDbContext db, CozeService coze, AdviceReque
         .Take(10)
         .ToListAsync();
 
-    var weakPoints = stats.Select(s => $"{s.KnowledgePoint}:{Math.Round(s.Accuracy, 2)}").ToList();
-    var advice = await coze.GetLearningAdviceAsync(uid, dto.Grade, dto.Subject, weakPoints);
+    var adviceStats = new List<Study.Services.CozeService.AdviceKnowledgeStat>();
+    
+    foreach (var stat in stats)
+    {
+        // Get error analyses for this KP (limit to recent/relevant ones to avoid token overflow)
+        var errors = await db.Questions
+            .Where(q => q.UserId == uid && q.Grade == dto.Grade && q.Subject == dto.Subject && q.KnowledgePoint == stat.KnowledgePoint && q.IsCorrect == false && !string.IsNullOrEmpty(q.ErrorAnalysis))
+            .OrderByDescending(q => q.PaperId) // Assuming newer first, or could add CreatedTime
+            .Select(q => q.ErrorAnalysis)
+            .Take(5)
+            .ToListAsync();
+
+        adviceStats.Add(new Study.Services.CozeService.AdviceKnowledgeStat
+        {
+            knowledgePoint = stat.KnowledgePoint,
+            accuracy = stat.Accuracy,
+            proficiency = stat.MasteryLevel,
+            errorAnalyses = errors
+        });
+    }
+
+    var input = new Study.Services.CozeService.AdviceInput
+    {
+        userId = uid,
+        grade = $"{dto.Grade}年级",
+        subject = dto.Subject,
+        textbook = dto.Publisher ?? "",
+        knowledgeStats = adviceStats
+    };
+
+    var advice = await coze.GetLearningAdviceAsync(input);
     return Results.Ok(advice ?? new Study.Services.CozeService.AdviceResult());
 });
 app.MapBlazorHub();
@@ -400,4 +430,10 @@ public record UploadDto(string Base64Image, int Grade, string Subject, string? P
 public record GeneratePracticeDto(string UserId, List<string> KnowledgePoints, List<string> QuestionTypeSpecs, int Grade, string Subject, string? Publisher);
 public record SubmitPracticeDto(string? PaperId, int Grade, string Subject, List<SubmitAnswer> Answers, string? UserId = "demo_user");
 public record SubmitAnswer(string QuestionId, string Content, string? UserAnswer, bool IsCorrect, string? CorrectAnswer, string KnowledgePoint, string QuestionType, string? ErrorAnalysis);
-public record AdviceRequest(int Grade, string Subject, string? UserId);
+public class AdviceRequest
+{
+    public int Grade { get; set; }
+    public string Subject { get; set; } = "";
+    public string? UserId { get; set; }
+    public string? Publisher { get; set; }
+}
