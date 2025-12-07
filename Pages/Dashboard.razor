@@ -147,12 +147,12 @@
                         <div class="card-body">
                             <div class="p-3 bg-light rounded-3">
                                 <div class="lead fs-6 mb-3 advice-content">
-                                    @((MarkupString)Markdown.ToHtml(advice.summary ?? ""))
+                                    @((MarkupString)Markdown.ToHtml(advice.summary ?? "", pipeline))
                                 </div>
                                 <ul class="mb-0 ps-3 advice-suggestions">
                                     @foreach (var tip in advice.suggestions)
                                     {
-                                        <li class="mb-2">@((MarkupString)Markdown.ToHtml(tip ?? ""))</li>
+                                        <li class="mb-2">@((MarkupString)Markdown.ToHtml(tip ?? "", pipeline))</li>
                                     }
                                 </ul>
                             </div>
@@ -233,6 +233,7 @@
 
     private List<ReportItem> report = new();
     private AdviceResult? advice;
+    private MarkdownPipeline pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -315,6 +316,7 @@
             StateHasChanged();
             await Task.Delay(100);
             await JS.InvokeVoidAsync("scrollToElement", "advice-section");
+            await JS.InvokeVoidAsync("renderMathJax");
         }
     }
 
