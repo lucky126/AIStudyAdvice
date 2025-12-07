@@ -81,6 +81,18 @@ namespace Study.Services
             catch (Exception ex)
             {
                 _logger.LogWarning($"Authentication state retrieval failed: {ex.Message}");
+                
+                // 如果发生异常（如 Data Protection Key 不匹配），尝试清理可能损坏的 Session
+                try 
+                {
+                    await _localStorage.DeleteAsync("UserSession");
+                    await _localStorage.DeleteAsync("AdminSession");
+                }
+                catch
+                {
+                    // 忽略清理过程中的错误
+                }
+
                 return _anonymous;
             }
         }

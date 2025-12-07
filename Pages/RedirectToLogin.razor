@@ -3,6 +3,14 @@
 @inject IJSRuntime JS
 @using Study.Services
 
+<div class="d-flex flex-column align-items-center justify-content-center vh-100 bg-light">
+    <div class="spinner-border text-primary mb-3" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <h5 class="text-secondary mb-2">正在验证身份...</h5>
+    <p class="text-muted small">如果长时间未跳转，请 <a href="/login" class="text-primary text-decoration-none">点击这里登录</a></p>
+</div>
+
 @code {
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -16,6 +24,7 @@
             }
 
             // 2. 双重检查：直接询问浏览器 LocalStorage 是否有 Token
+            bool sessionFound = false;
             try 
             {
                 var userSession = await JS.InvokeAsync<string>("localStorage.getItem", "UserSession");
@@ -23,12 +32,23 @@
 
                 if (!string.IsNullOrEmpty(userSession) || !string.IsNullOrEmpty(adminSession))
                 {
-                    // 关键修复：如果 JS 发现有 Token 但 C# 没读到，强制触发一次状态加载
+                    sessionFound = true;
+                    // 如果 JS 发现有 Token 但 C# 没读到，强制触发一次状态加载
                     if (AuthStateProvider is CustomAuthenticationStateProvider customProvider)
                     {
                         await customProvider.LoadStateAsync();
+                        
+                        // 给一点时间让状态更新生效
+                        await Task.Delay(200);
+                        
+                        // 再次检查状态
+                        authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                        if (authState.User.Identity?.IsAuthenticated == true)
+                        {
+                            // 认证成功，页面会自动刷新到 Authorized 视图，无需手动跳转
+                            return;
+                        }
                     }
-                    return; 
                 }
             }
             catch
@@ -36,7 +56,7 @@
                 // 忽略 JS 错误
             }
 
-            // 3. 确认未登录，执行跳转
+            // 3. 确认未登录（或者尝试加载 Session 失败），执行跳转
             var uri = Nav.Uri;
             if (uri.ToLower().Contains("/admin"))
             {
