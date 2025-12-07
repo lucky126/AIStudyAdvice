@@ -1,23 +1,38 @@
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
 
 @code {
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            // 增加延时，给予客户端身份验证状态初始化的时间
-            // 解决 Blazor Server 预渲染期间因无法读取 LocalStorage 而导致的误判重定向循环
-            await Task.Delay(300);
-
+            // 1. 先检查 C# 状态
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             if (authState.User.Identity?.IsAuthenticated == true)
             {
-                // 如果用户实际上已认证（LocalStorage 读取成功），则不进行重定向
-                // 路由组件会自动更新页面
                 return;
             }
 
+            // 2. 双重检查：直接询问浏览器 LocalStorage 是否有 Token
+            // 这是为了防止 Blazor Server 尚未完成状态同步时误判为未登录
+            try 
+            {
+                var userSession = await JS.InvokeAsync<string>("localStorage.getItem", "UserSession");
+                var adminSession = await JS.InvokeAsync<string>("localStorage.getItem", "AdminSession");
+
+                // 如果本地存储有数据，说明用户应该是登录状态，暂时不跳转，等待 StateProvider 同步
+                if (!string.IsNullOrEmpty(userSession) || !string.IsNullOrEmpty(adminSession))
+                {
+                    return; 
+                }
+            }
+            catch
+            {
+                // 如果 JS 调用失败，忽略错误，继续执行跳转逻辑
+            }
+
+            // 3. 确认未登录，执行跳转
             var uri = Nav.Uri;
             if (uri.ToLower().Contains("/admin"))
             {

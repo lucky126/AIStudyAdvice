@@ -36,6 +36,15 @@
     private string password = "";
     private string error = "";
 
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            Nav.NavigateTo("/", true);
+        }
+    }
+
     private async Task Enter(KeyboardEventArgs e)
     {
         if (e.Code == "Enter" || e.Code == "NumpadEnter")
