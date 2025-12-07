@@ -13,6 +13,7 @@ namespace Study.Data
         public DbSet<Paper> Papers => Set<Paper>();
         public DbSet<User> Users => Set<User>();
         public DbSet<InvitationCode> InvitationCodes => Set<InvitationCode>();
+        public DbSet<AdviceHistory> AdviceHistories => Set<AdviceHistory>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -25,6 +26,9 @@ namespace Study.Data
 
             modelBuilder.Entity<KnowledgeStat>()
                 .HasKey(k => new { k.UserId, k.Grade, k.Subject, k.KnowledgePoint });
+
+            modelBuilder.Entity<AdviceHistory>()
+                .HasIndex(h => new { h.UserId, h.Grade, h.Subject, h.Textbook, h.RequestHash });
         }
     }
 }

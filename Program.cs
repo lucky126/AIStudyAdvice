@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Study.Data;
 using Study.Services;
 using Study.Models;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -68,6 +71,18 @@ using (var scope = app.Services.CreateScope())
                 ""CreatedTime"" timestamp with time zone NOT NULL
             );
             CREATE UNIQUE INDEX IF NOT EXISTS ""IX_InvitationCodes_Code"" ON ""InvitationCodes"" (""Code"");
+
+            CREATE TABLE IF NOT EXISTS ""AdviceHistories"" (
+                ""Id"" serial PRIMARY KEY,
+                ""UserId"" text NOT NULL,
+                ""Grade"" text,
+                ""Subject"" text,
+                ""Textbook"" text,
+                ""RequestHash"" text NOT NULL,
+                ""ResponseContent"" text NOT NULL,
+                ""CreateTime"" timestamp with time zone NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ""IX_AdviceHistories_Lookup"" ON ""AdviceHistories"" (""UserId"", ""Grade"", ""Subject"", ""Textbook"", ""RequestHash"");
         ");
     }
     catch (Exception ex)
@@ -366,7 +381,62 @@ app.MapPost("/api/advice", async (AppDbContext db, CozeService coze, AdviceReque
         knowledgeStats = adviceStats
     };
 
+    // Calculate Hash
+    var inputJson = JsonSerializer.Serialize(input);
+    using var sha256 = SHA256.Create();
+    var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(inputJson));
+    var hash = Convert.ToBase64String(hashBytes);
+
+    Console.WriteLine($"[API_ADVICE] Request Hash: {hash}");
+
+    // Check Cache
+    var cached = await db.AdviceHistories
+        .Where(h => h.UserId == uid && h.Grade == dto.Grade.ToString() && h.Subject == dto.Subject && h.Textbook == (dto.Publisher ?? "") && h.RequestHash == hash)
+        .OrderByDescending(h => h.CreateTime)
+        .FirstOrDefaultAsync();
+
+    if (cached != null)
+    {
+        Console.WriteLine("[API_ADVICE] Cache hit, returning stored advice.");
+        try 
+        {
+            var cachedResult = JsonSerializer.Deserialize<Study.Services.CozeService.AdviceResult>(cached.ResponseContent);
+            if (cachedResult != null) return Results.Ok(cachedResult);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API_ADVICE] Cache deserialization failed: {ex.Message}");
+        }
+    }
+
+    Console.WriteLine("[API_ADVICE] Cache miss, calling Coze...");
     var advice = await coze.GetLearningAdviceAsync(input);
+    
+    if (advice != null)
+    {
+        // Save to Cache
+        try 
+        {
+            var history = new AdviceHistory
+            {
+                UserId = uid,
+                Grade = dto.Grade.ToString(),
+                Subject = dto.Subject,
+                Textbook = dto.Publisher ?? "",
+                RequestHash = hash,
+                ResponseContent = JsonSerializer.Serialize(advice),
+                CreateTime = DateTime.UtcNow
+            };
+            await db.AdviceHistories.AddAsync(history);
+            await db.SaveChangesAsync();
+            Console.WriteLine("[API_ADVICE] Advice saved to cache.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[API_ADVICE] Failed to save cache: {ex.Message}");
+        }
+    }
+
     return Results.Ok(advice ?? new Study.Services.CozeService.AdviceResult());
 });
 app.MapBlazorHub();
