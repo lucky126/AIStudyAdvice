@@ -113,13 +113,15 @@
                         </div>
                     </div>
                     <div class="col-6 col-md-4">
-                        <div class="card border-0 shadow-sm h-100 action-card" @onclick="@LoadAdvice">
+                        <div class="card border-0 shadow-sm h-100 action-card" @onclick="@NavigateToAdvice">
                             <div class="card-body text-center py-4">
                                 <div class="icon-circle bg-info bg-opacity-10 text-info mx-auto mb-3">
                                     <span class="oi oi-people fs-4"></span>
                                 </div>
                                 <h6 class="fw-bold mb-1">学习顾问</h6>
-                                <small class="text-muted">获取学习建议</small>
+                                <small class="text-muted">
+                                    获取学习建议
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -131,48 +133,6 @@
                     <div id="upload-section" class="mb-4">
                         <UploadSection Grade="@grade" Subject="@subject" Publisher="@textbookVersion" 
                                      OnUploaded="OnUploaded" OnClose="CloseUpload" />
-                    </div>
-                }
-
-                @* Advice Section *@
-                @if (advice != null)
-                {
-                    <div id="advice-section" class="card border-0 shadow-sm mt-4">
-                        <div class="card-header bg-white border-bottom-0 pt-3 d-flex justify-content-between align-items-center">
-                            <h5 class="card-title text-info fw-bold mb-0">
-                                <span class="oi oi-chat me-2"></span>顾问建议
-                            </h5>
-                            <button type="button" class="btn-close" aria-label="Close" @onclick="CloseAdvice"></button>
-                        </div>
-                        <div class="card-body">
-                            <div class="p-3 bg-light rounded-3">
-                                <div class="lead fs-6 mb-3 advice-content">
-                                    @((MarkupString)Markdown.ToHtml(advice.summary ?? "", pipeline))
-                                </div>
-                                <ul class="mb-0 ps-3 advice-suggestions">
-                                    @foreach (var tip in advice.suggestions)
-                                    {
-                                        <li class="mb-2">@((MarkupString)Markdown.ToHtml(tip ?? "", pipeline))</li>
-                                    }
-                                </ul>
-                            </div>
-                            
-                            @* 
-                            @if (!string.IsNullOrEmpty(advice.debugInput))
-                            {
-                                <div class="mt-3">
-                                    <button class="btn btn-sm btn-outline-secondary mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#debugInfo" aria-expanded="false" aria-controls="debugInfo">
-                                        显示调试信息
-                                    </button>
-                                    <div class="collapse" id="debugInfo">
-                                        <div class="card card-body bg-light border-0">
-                                            <pre class="mb-0" style="font-size: 0.8rem; white-space: pre-wrap;">@advice.debugInput</pre>
-                                        </div>
-                                    </div>
-                                </div>
-                            }
-                            *@
-                        </div>
                     </div>
                 }
             </div>
@@ -213,13 +173,6 @@
     tr {
         position: relative;
     }
-    .advice-content p:last-child {
-        margin-bottom: 0;
-    }
-    .advice-suggestions li p {
-        margin-bottom: 0;
-        display: inline;
-    }
 </style>
 
 @code {
@@ -232,10 +185,9 @@
     private string userId = "demo_user";
 
     private List<ReportItem> report = new();
-    private AdviceResult? advice;
-    private MarkdownPipeline pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
+
     {
         if (firstRender)
         {
@@ -307,27 +259,12 @@
         await JS.InvokeVoidAsync("scrollToElement", "analysis-section");
     }
 
-    private async Task LoadAdvice()
+    private void NavigateToAdvice()
     {
-        var resp = await Http.PostAsJsonAsync("/api/advice", new { grade, subject, userId, publisher = textbookVersion });
-        if (resp.IsSuccessStatusCode)
-        {
-            advice = await resp.Content.ReadFromJsonAsync<AdviceResult>(new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            StateHasChanged();
-            await Task.Delay(100);
-            await JS.InvokeVoidAsync("scrollToElement", "advice-section");
-            await JS.InvokeVoidAsync("renderMathJax");
-        }
-    }
-
-    private async Task CloseAdvice()
-    {
-        advice = null;
-        await JS.InvokeVoidAsync("scrollToElement", "analysis-section");
+        Nav.NavigateTo($"/advice?Grade={grade}&Subject={Uri.EscapeDataString(subject)}&Publisher={Uri.EscapeDataString(textbookVersion)}");
     }
 
     private class Config { public int grade { get; set; } public string? subject { get; set; } public string? textbookVersion { get; set; } }
     private class AnalyticsResponse { public List<ReportItem> report { get; set; } = new(); }
     private class ReportItem { public string knowledgePoint { get; set; } = ""; public double accuracy { get; set; } public string mastery { get; set; } = ""; }
-    private class AdviceResult { public string summary { get; set; } = ""; public string tone { get; set; } = ""; public List<string> suggestions { get; set; } = new(); public string? debugInput { get; set; } }
 }

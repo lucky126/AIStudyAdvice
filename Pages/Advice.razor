@@ -1,0 +1,213 @@
+@page "/advice"
+@using Markdig
+@using Study.Services
+@inject IJSRuntime JS
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>学习顾问</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex align-items-center mb-4">
+        <button class="btn btn-outline-secondary me-3" @onclick="GoBack">
+            <span class="oi oi-arrow-left"></span> 返回
+        </button>
+        <h4 class="fw-bold text-secondary mb-0">学习顾问建议</h4>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex flex-column align-items-center justify-content-center py-5">
+            <div class="spinner-border text-info mb-3" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="text-muted">正在分析您的学习数据，请稍候...</p>
+        </div>
+    }
+    else if (loadError)
+    {
+        <div class="alert alert-danger">
+            获取建议失败，请稍后重试。
+            <br>
+            <small>@errorMessage</small>
+        </div>
+        <button class="btn btn-primary" @onclick="LoadAdvice">重试</button>
+    }
+    else if (advice != null)
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom-0 pt-3">
+                <h5 class="card-title text-info fw-bold mb-0">
+                    <span class="oi oi-chat me-2"></span>专属学习建议
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="p-3 bg-light rounded-3">
+                    <div class="lead fs-6 mb-3 advice-content">
+                        @((MarkupString)Study.Shared.MathHelper.FixMathInHtml(Markdown.ToHtml(advice.summary ?? "", pipeline)))
+                    </div>
+                    
+                    @if (advice.suggestions != null && advice.suggestions.Count > 0)
+                    {
+                        <hr class="my-3">
+                        <h6 class="fw-bold mb-3 text-secondary">具体建议：</h6>
+                        <ul class="mb-0 ps-3 advice-suggestions">
+                            @foreach (var tip in advice.suggestions)
+                            {
+                                <li class="mb-2">@((MarkupString)Study.Shared.MathHelper.FixMathInHtml(Markdown.ToHtml(tip ?? "", pipeline)))</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .advice-content p:last-child {
+        margin-bottom: 0;
+    }
+    .advice-content h1, .advice-content h2, .advice-content h3 {
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #0dcaf0;
+    }
+    .advice-content h1 { font-size: 1.5rem; }
+    .advice-content h2 { font-size: 1.25rem; }
+    .advice-content h3 { font-size: 1.1rem; }
+    .advice-content ul, .advice-content ol {
+        padding-left: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    .advice-content li {
+        margin-bottom: 0.25rem;
+    }
+    .advice-content strong {
+        font-weight: 700;
+        color: #212529;
+    }
+    .advice-content pre {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        overflow-x: auto;
+        border: 1px solid #dee2e6;
+        margin-bottom: 1rem;
+    }
+    .advice-content code {
+        color: #d63384;
+        word-wrap: break-word;
+    }
+    .advice-content pre code {
+        color: inherit;
+        word-break: normal;
+    }
+    .advice-suggestions li p {
+        margin-bottom: 0;
+        display: inline;
+    }
+</style>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int? Grade { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? Subject { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? Publisher { get; set; }
+
+    private string userId = "demo_user";
+    private bool isLoading = true;
+    private bool loadError = false;
+    private string errorMessage = "";
+    private CozeService.AdviceResult? advice;
+    private MarkdownPipeline pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (state.User.Identity?.IsAuthenticated ?? false)
+            {
+                userId = state.User.Identity.Name ?? "demo_user";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Auth error: {ex.Message}");
+        }
+
+        if (Grade.HasValue && !string.IsNullOrEmpty(Subject))
+        {
+            await LoadAdvice();
+        }
+        else
+        {
+            isLoading = false;
+            loadError = true;
+            errorMessage = "缺少必要的参数 (年级/学科)";
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (advice != null)
+        {
+            await JS.InvokeVoidAsync("renderMathJax");
+        }
+    }
+
+    private async Task LoadAdvice()
+    {
+        isLoading = true;
+        loadError = false;
+        errorMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            var payload = new 
+            { 
+                grade = Grade, 
+                subject = Subject, 
+                userId = userId, 
+                publisher = Publisher ?? "" 
+            };
+
+            var resp = await Http.PostAsJsonAsync("/api/advice", payload);
+            if (resp.IsSuccessStatusCode)
+            {
+                advice = await resp.Content.ReadFromJsonAsync<CozeService.AdviceResult>(new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            else
+            {
+                loadError = true;
+                errorMessage = $"API Error: {resp.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            loadError = true;
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoBack()
+    {
+        Nav.NavigateTo("/dashboard");
+    }
+}

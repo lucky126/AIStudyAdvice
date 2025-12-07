@@ -77,6 +77,19 @@ namespace Study.Services
             return user;
         }
 
+        public async Task ChangePasswordAsync(string username, string oldPasswordHash, string newPasswordHash)
+        {
+            username = username.ToLower();
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
+            if (user == null) throw new Exception("用户不存在");
+            
+            if (user.PasswordHash != oldPasswordHash)
+                throw new Exception("原密码错误");
+
+            user.PasswordHash = newPasswordHash;
+            await _db.SaveChangesAsync();
+        }
+
         // Admin Management Logic
         public async Task<List<InvitationCode>> GenerateInvitationCodesAsync(int count)
         {

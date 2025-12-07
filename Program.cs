@@ -28,6 +28,8 @@ builder.Services.AddHttpClient<CozeService>(client =>
     {
         client.BaseAddress = new Uri(baseUrl);
     }
+    // Increase timeout to 5 minutes for slow AI responses
+    client.Timeout = TimeSpan.FromMinutes(5);
 });
 builder.Services.AddScoped<CozeService>();
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:8099") });
@@ -89,11 +91,20 @@ using (var scope = app.Services.CreateScope())
     {
         Console.WriteLine($"Migration warning: {ex.Message}");
     }
+    
+    // Cleanup bad cache entries (containing system errors)
+    try 
+    {
+        db.Database.ExecuteSqlRaw("DELETE FROM \"AdviceHistories\" WHERE \"ResponseContent\" LIKE '%系统错误%' OR \"ResponseContent\" LIKE '%获取建议失败%'");
+        Console.WriteLine("[MIGRATION] Cleaned up bad advice cache entries.");
+    }
+    catch (Exception ex)
+    {
+         Console.WriteLine($"[MIGRATION] Failed to clean bad cache: {ex.Message}");
+    }
 }
 
-app.UseHttpsRedirection();
-
-app.UseStaticFiles();
+app.UseHttpsRedirection();app.UseStaticFiles();
 
 app.UseRouting();
 
@@ -348,6 +359,7 @@ app.MapPost("/api/advice", async (AppDbContext db, CozeService coze, AdviceReque
     var stats = await db.KnowledgeStats
         .Where(k => k.UserId == uid && k.Grade == dto.Grade && k.Subject == dto.Subject)
         .OrderBy(k => k.Accuracy)
+        .ThenBy(k => k.KnowledgePoint) // Ensure stable sort order for consistent hashing
         .Take(10)
         .ToListAsync();
 
@@ -384,6 +396,7 @@ app.MapPost("/api/advice", async (AppDbContext db, CozeService coze, AdviceReque
     // Calculate Hash
     var inputJson = JsonSerializer.Serialize(input);
     using var sha256 = SHA256.Create();
+    // Reverted to original hash to hit existing cache
     var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(inputJson));
     var hash = Convert.ToBase64String(hashBytes);
 
@@ -401,7 +414,15 @@ app.MapPost("/api/advice", async (AppDbContext db, CozeService coze, AdviceReque
         try 
         {
             var cachedResult = JsonSerializer.Deserialize<Study.Services.CozeService.AdviceResult>(cached.ResponseContent);
-            if (cachedResult != null) return Results.Ok(cachedResult);
+            if (cachedResult != null) 
+            {
+                // Apply Markdown fix on-the-fly for cached content
+                if (!string.IsNullOrEmpty(cachedResult.summary))
+                {
+                    cachedResult.summary = Study.Services.CozeService.CleanMarkdown(cachedResult.summary);
+                }
+                return Results.Ok(cachedResult);
+            }
         }
         catch (Exception ex)
         {
@@ -414,26 +435,43 @@ app.MapPost("/api/advice", async (AppDbContext db, CozeService coze, AdviceReque
     
     if (advice != null)
     {
-        // Save to Cache
-        try 
+        // Do not cache error responses
+        if (advice.summary == "系统错误" || advice.summary == "获取建议失败" || advice.summary == "解析建议失败")
         {
-            var history = new AdviceHistory
-            {
-                UserId = uid,
-                Grade = dto.Grade.ToString(),
-                Subject = dto.Subject,
-                Textbook = dto.Publisher ?? "",
-                RequestHash = hash,
-                ResponseContent = JsonSerializer.Serialize(advice),
-                CreateTime = DateTime.UtcNow
-            };
-            await db.AdviceHistories.AddAsync(history);
-            await db.SaveChangesAsync();
-            Console.WriteLine("[API_ADVICE] Advice saved to cache.");
+             Console.WriteLine("[API_ADVICE] Response indicates error, skipping cache.");
         }
-        catch (Exception ex)
+        else 
         {
-            Console.WriteLine($"[API_ADVICE] Failed to save cache: {ex.Message}");
+            // Save to Cache
+            try 
+            {
+                // Check if hash already exists to prevent duplicates
+                var exists = await db.AdviceHistories.AnyAsync(h => h.RequestHash == hash);
+                if (!exists)
+                {
+                    var history = new AdviceHistory
+                    {
+                        UserId = uid,
+                        Grade = dto.Grade.ToString(),
+                        Subject = dto.Subject,
+                        Textbook = dto.Publisher ?? "",
+                        RequestHash = hash,
+                        ResponseContent = JsonSerializer.Serialize(advice),
+                        CreateTime = DateTime.UtcNow
+                    };
+                    await db.AdviceHistories.AddAsync(history);
+                    await db.SaveChangesAsync();
+                    Console.WriteLine("[API_ADVICE] Advice saved to cache.");
+                }
+                else
+                {
+                    Console.WriteLine("[API_ADVICE] Cache already exists for this hash, skipping insert.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[API_ADVICE] Failed to save cache: {ex.Message}");
+            }
         }
     }
 

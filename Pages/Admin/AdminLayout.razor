@@ -48,7 +48,7 @@
     private async Task Logout()
     {
         var customAuth = (Study.Services.CustomAuthenticationStateProvider)AuthStateProvider;
-        await customAuth.UpdateAuthenticationState(null);
+        await customAuth.UpdateAuthenticationState(null, "AdminSession");
         Nav.NavigateTo("/admin/login", true);
     }
 }

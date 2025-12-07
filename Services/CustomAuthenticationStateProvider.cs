@@ -16,114 +16,90 @@ namespace Study.Services
 
         public override async Task<AuthenticationState> GetAuthenticationStateAsync()
         {
+            var principal = await BuildPrincipalAsync();
+            return new AuthenticationState(principal);
+        }
+
+        private async Task<ClaimsPrincipal> BuildPrincipalAsync()
+        {
             try
             {
+                var identities = new List<ClaimsIdentity>();
+
+                // 1. Try Load User Session
                 var userSessionResult = await _localStorage.GetAsync<UserSession>("UserSession");
                 var userSession = userSessionResult.Success ? userSessionResult.Value : null;
 
-                if (userSession == null || userSession.ExpiryTime < DateTime.UtcNow)
+                if (userSession != null && userSession.ExpiryTime > DateTime.UtcNow)
                 {
-                    if (userSession != null) 
+                    var claims = new List<Claim>
                     {
-                        await _localStorage.DeleteAsync("UserSession");
-                    }
-                    return await Task.FromResult(new AuthenticationState(_anonymous));
+                        new Claim(ClaimTypes.Name, userSession.Username),
+                        new Claim(ClaimTypes.Role, "User")
+                    };
+                    if (!string.IsNullOrEmpty(userSession.UserId))
+                        claims.Add(new Claim("UserId", userSession.UserId));
+                    if (!string.IsNullOrEmpty(userSession.Nickname))
+                        claims.Add(new Claim("Nickname", userSession.Nickname));
+
+                    identities.Add(new ClaimsIdentity(claims, "UserAuth"));
+                }
+                else if (userSession != null)
+                {
+                    await _localStorage.DeleteAsync("UserSession");
                 }
 
-                var claims = new List<Claim>
+                // 2. Try Load Admin Session
+                var adminSessionResult = await _localStorage.GetAsync<UserSession>("AdminSession");
+                var adminSession = adminSessionResult.Success ? adminSessionResult.Value : null;
+
+                if (adminSession != null && adminSession.ExpiryTime > DateTime.UtcNow)
                 {
-                    new Claim(ClaimTypes.Name, userSession.Username),
-                    new Claim(ClaimTypes.Role, userSession.Role)
-                };
-                if (!string.IsNullOrEmpty(userSession.UserId))
-                {
-                    claims.Add(new Claim("UserId", userSession.UserId));
+                    var claims = new List<Claim>
+                    {
+                        new Claim(ClaimTypes.Name, adminSession.Username),
+                        new Claim(ClaimTypes.Role, "Admin")
+                    };
+                    identities.Add(new ClaimsIdentity(claims, "AdminAuth"));
                 }
-                if (!string.IsNullOrEmpty(userSession.Nickname))
+                else if (adminSession != null)
                 {
-                    claims.Add(new Claim("Nickname", userSession.Nickname));
+                    await _localStorage.DeleteAsync("AdminSession");
                 }
 
-                var claimsPrincipal = new ClaimsPrincipal(new ClaimsIdentity(claims, "CustomAuth"));
+                if (identities.Count > 0)
+                {
+                    return new ClaimsPrincipal(identities);
+                }
 
-                return await Task.FromResult(new AuthenticationState(claimsPrincipal));
+                return _anonymous;
             }
             catch
             {
-                return await Task.FromResult(new AuthenticationState(_anonymous));
+                return _anonymous;
             }
         }
 
         public async Task LoadStateAsync()
         {
-            try
-            {
-                var userSessionResult = await _localStorage.GetAsync<UserSession>("UserSession");
-                var userSession = userSessionResult.Success ? userSessionResult.Value : null;
-
-                if (userSession == null || userSession.ExpiryTime < DateTime.UtcNow)
-                {
-                    if (userSession != null) 
-                    {
-                        await _localStorage.DeleteAsync("UserSession");
-                    }
-                    NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(_anonymous)));
-                    return;
-                }
-
-                var claims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.Name, userSession.Username),
-                    new Claim(ClaimTypes.Role, userSession.Role)
-                };
-                if (!string.IsNullOrEmpty(userSession.UserId))
-                {
-                    claims.Add(new Claim("UserId", userSession.UserId));
-                }
-                if (!string.IsNullOrEmpty(userSession.Nickname))
-                {
-                    claims.Add(new Claim("Nickname", userSession.Nickname));
-                }
-
-                var claimsPrincipal = new ClaimsPrincipal(new ClaimsIdentity(claims, "CustomAuth"));
-                NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(claimsPrincipal)));
-            }
-            catch
-            {
-                // Ignore errors during loading
-            }
+            var principal = await BuildPrincipalAsync();
+            NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(principal)));
         }
 
-        public async Task UpdateAuthenticationState(UserSession? userSession)
+        public async Task UpdateAuthenticationState(UserSession? session, string key = "UserSession")
         {
-            ClaimsPrincipal claimsPrincipal;
-
-            if (userSession != null)
+            if (session != null)
             {
-                userSession.ExpiryTime = DateTime.UtcNow.AddDays(1); // Set expiry to 1 day
-                await _localStorage.SetAsync("UserSession", userSession);
-                var claims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.Name, userSession.Username),
-                    new Claim(ClaimTypes.Role, userSession.Role)
-                };
-                if (!string.IsNullOrEmpty(userSession.UserId))
-                {
-                    claims.Add(new Claim("UserId", userSession.UserId));
-                }
-                if (!string.IsNullOrEmpty(userSession.Nickname))
-                {
-                    claims.Add(new Claim("Nickname", userSession.Nickname));
-                }
-                claimsPrincipal = new ClaimsPrincipal(new ClaimsIdentity(claims, "CustomAuth"));
+                session.ExpiryTime = DateTime.UtcNow.AddDays(1);
+                await _localStorage.SetAsync(key, session);
             }
             else
             {
-                await _localStorage.DeleteAsync("UserSession");
-                claimsPrincipal = _anonymous;
+                await _localStorage.DeleteAsync(key);
             }
 
-            NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(claimsPrincipal)));
+            var principal = await BuildPrincipalAsync();
+            NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(principal)));
         }
     }
 

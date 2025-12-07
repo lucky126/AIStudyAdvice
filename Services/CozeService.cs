@@ -55,7 +55,7 @@ namespace Study.Services
             {
                 var imageBytes = Convert.FromBase64String(base64Image);
                 var uploadUrl = $"{baseUrl.TrimEnd('/')}/files/upload";
-                Console.WriteLine($"[COZE] Upload start: url={uploadUrl}, bytes={imageBytes.Length}");
+                // Console.WriteLine($"[COZE] Upload start: url={uploadUrl}, bytes={imageBytes.Length}");
 
                 using var content = new MultipartFormDataContent();
                 var fileContent = new ByteArrayContent(imageBytes);
@@ -66,7 +66,6 @@ namespace Study.Services
                 uploadReq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
 
                 var uploadResp = await _httpClient.SendAsync(uploadReq);
-                Console.WriteLine($"[COZE] Upload resp: status={(int)uploadResp.StatusCode} {uploadResp.StatusCode}");
                 if (!uploadResp.IsSuccessStatusCode)
                 {
                     var err = await uploadResp.Content.ReadAsStringAsync();
@@ -75,16 +74,13 @@ namespace Study.Services
                 }
 
                 var uploadJson = await uploadResp.Content.ReadAsStringAsync();
-                Console.WriteLine($"[COZE] Upload ok body: {uploadJson}");
                 using var doc = JsonDocument.Parse(uploadJson);
                 // 兼容返回格式：{"code":0,"data":{"id":"xxxx"}}
                 if (!doc.RootElement.TryGetProperty("data", out var dataElem) || !dataElem.TryGetProperty("id", out var idElem))
                 {
-                    Console.WriteLine("[COZE] Upload parse error: missing data.id");
                     return (null, "Coze upload response missing data.id", "");
                 }
                 fileId = idElem.GetString() ?? string.Empty;
-                Console.WriteLine($"[COZE] file_id={fileId}");
                 if (string.IsNullOrEmpty(fileId)) return (null, "Coze upload returned empty file_id", "");
             }
             catch (Exception ex)
@@ -97,7 +93,6 @@ namespace Study.Services
             // 2) 使用 file_id 调用工作流
             var workflowUrl = $"{baseUrl.TrimEnd('/')}/workflow/stream_run";
             var imageParam = JsonSerializer.Serialize(new { file_id = fileId });
-            Console.WriteLine($"[COZE] Workflow upload start: url={workflowUrl}, workflow_id={workflowId}, imageParam={imageParam}, grade={grade}, subject={subject}, publisher={publisher}");
             var payload = new
             {
                 workflow_id = workflowId,
@@ -119,7 +114,6 @@ namespace Study.Services
             try
             {
                 var resp = await _httpClient.SendAsync(req);
-                Console.WriteLine($"[COZE] Workflow resp: status={(int)resp.StatusCode} {resp.StatusCode}");
                 if (!resp.IsSuccessStatusCode)
                 {
                     var err = await resp.Content.ReadAsStringAsync();
@@ -172,9 +166,9 @@ namespace Study.Services
                         }
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    Console.WriteLine($"[COZE] Data parse exception: {ex.Message}");
+                    // Console.WriteLine($"[COZE] Data parse exception: {ex.Message}");
                 }
 
                 return (parsed, string.Empty, fileId);
@@ -214,9 +208,7 @@ namespace Study.Services
 
             try
             {
-                Console.WriteLine($"[COZE_GEN] Calling workflow_id={workflowId} grade={grade} subject={subject} publisher={publisher} kps={knowledgePoints.Count} specs={string.Join(",", questionTypeSpecs)}");
                 var resp = await _httpClient.SendAsync(req);
-                Console.WriteLine($"[COZE_GEN] Response status: {resp.StatusCode}");
                 resp.EnsureSuccessStatusCode();
                 
                 var innerJson = await ParseCozeStreamResponseAsync(resp);
@@ -258,9 +250,9 @@ namespace Study.Services
                          if (temp?.questions != null) parsed = temp;
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    Console.WriteLine($"[COZE] Inner parse error: {ex.Message}");
+                    // Console.WriteLine($"[COZE] Inner parse error: {ex.Message}");
                 }
 
                 var result = new List<PracticeQuestion>();
@@ -295,6 +287,8 @@ namespace Study.Services
             
             var lines = content.Split('\n');
             string currentEvent = "";
+            string? lastMessageContent = null;
+            string? finishedMessageContent = null;
             
             foreach (var line in lines)
             {
@@ -312,18 +306,18 @@ namespace Study.Services
                     {
                         try 
                         {
-                            Console.WriteLine($"[COZE] Found workflow_finished: {data}");
+                            // Console.WriteLine($"[COZE] Found workflow_finished: {data}");
                             using var doc = JsonDocument.Parse(data);
                             if (doc.RootElement.TryGetProperty("data", out var dataElem))
                             {
                                 var finalData = dataElem.GetString();
-                                Console.WriteLine($"[COZE] Extracted workflow_finished data: {finalData}");
+                                // Console.WriteLine($"[COZE] Extracted workflow_finished data: {finalData}");
                                 return finalData;
                             }
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
-                            Console.WriteLine($"[COZE] Error parsing workflow_finished data: {ex.Message}");
+                            // Console.WriteLine($"[COZE] Error parsing workflow_finished data: {ex.Message}");
                         }
                     }
                     else if (currentEvent == "Message")
@@ -332,23 +326,45 @@ namespace Study.Services
                         {
                             // Console.WriteLine($"[COZE] Found Message event data: {data}");
                             using var doc = JsonDocument.Parse(data);
+                            
+                            bool isFinish = false;
+                            if (doc.RootElement.TryGetProperty("node_is_finish", out var finishElem))
+                            {
+                                isFinish = finishElem.ValueKind == JsonValueKind.True || (finishElem.ValueKind == JsonValueKind.String && finishElem.GetString() == "true");
+                            }
+                            
                             if (doc.RootElement.TryGetProperty("content", out var contentElem))
                             {
                                 var contentStr = contentElem.GetString();
                                 if (!string.IsNullOrEmpty(contentStr) && contentStr.Contains("\"output\""))
                                 {
-                                    Console.WriteLine($"[COZE] Found output in Message content: {contentStr}");
-                                    return contentStr;
+                                    // Console.WriteLine($"[COZE] Found output in Message content: {contentStr}");
+                                    if (isFinish)
+                                    {
+                                        finishedMessageContent = contentStr;
+                                    }
+                                    lastMessageContent = contentStr;
                                 }
                             }
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
                              // Ignore parsing errors for non-JSON messages
                         }
                     }
                 }
             }
+
+            if (finishedMessageContent != null)
+            {
+                return finishedMessageContent;
+            }
+            
+            if (lastMessageContent != null)
+            {
+                return lastMessageContent;
+            }
+
             return null;
         }
 
@@ -377,6 +393,37 @@ namespace Study.Services
             public List<string> errorAnalyses { get; set; } = new();
         }
 
+        public static string CleanMarkdown(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return input;
+            
+            var cleanStr = input.Trim();
+            
+            // Robustly strip markdown code fences using Regex
+            // Matches start of string, optional whitespace, 3+ backticks, optional language, optional whitespace/newline
+            var startFenceRegex = new System.Text.RegularExpressions.Regex(@"^\s*`{3,}\w*\s*", System.Text.RegularExpressions.RegexOptions.Compiled);
+            if (startFenceRegex.IsMatch(cleanStr))
+            {
+                cleanStr = startFenceRegex.Replace(cleanStr, "", 1);
+                
+                // Remove closing fence (whitespace, 3+ backticks, whitespace, end of string)
+                cleanStr = System.Text.RegularExpressions.Regex.Replace(cleanStr, @"\s*`{3,}\s*$", "", System.Text.RegularExpressions.RegexOptions.Compiled);
+            }
+
+            // Fix CJK bold rendering issues (e.g. "Char**【" or "】**Char")
+            // CommonMark requires specific boundary conditions for emphasis which CJK punctuation can break
+            
+            // 1. Insert space before ** if preceded by non-space/non-punct and followed by open punctuation
+            cleanStr = System.Text.RegularExpressions.Regex.Replace(cleanStr, 
+                @"(?<=[^\s\p{P}])\*\*(?=[\p{Ps}\p{Pi}])", " **", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+            // 2. Insert space after ** if preceded by close punctuation and followed by non-space/non-punct
+            cleanStr = System.Text.RegularExpressions.Regex.Replace(cleanStr, 
+                @"(?<=[\p{Pe}\p{Pf}])\*\*(?=[^\s\p{P}])", "** ", System.Text.RegularExpressions.RegexOptions.Compiled);
+            
+            return cleanStr.Trim();
+        }
+
         public async Task<AdviceResult?> GetLearningAdviceAsync(AdviceInput input)
         {
             var baseUrl = _configuration["Coze:BaseUrl"] ?? "";
@@ -385,23 +432,12 @@ namespace Study.Services
             var url = $"{baseUrl.TrimEnd('/')}/workflow/stream_run";
 
             var inputJson = JsonSerializer.Serialize(input, new JsonSerializerOptions { WriteIndented = true });
-            // Note: Coze Workflow expects "parameters" to contain the input variable directly if defined as "input" in Start node.
-            // Based on user's curl example:
-            // {
-            //   "workflow_id": "...",
-            //   "parameters": {
-            //     "input": { ... }
-            //   }
-            // }
             
             var payload = new
             {
                 workflow_id = workflowId,
                 parameters = new { input = input }
             };
-            
-            // Console.WriteLine($"[COZE_ADVICE] Sending request to {url}");
-            // Console.WriteLine($"[COZE_ADVICE] Input Payload: {JsonSerializer.Serialize(payload)}");
 
             using var req = new HttpRequestMessage(HttpMethod.Post, url)
             {
@@ -412,11 +448,9 @@ namespace Study.Services
             try
             {
                 var resp = await _httpClient.SendAsync(req);
-                Console.WriteLine($"[COZE_ADVICE] Response status: {resp.StatusCode}");
                 if (!resp.IsSuccessStatusCode)
                 {
                     var err = await resp.Content.ReadAsStringAsync();
-                    Console.WriteLine($"[COZE_ADVICE] Error: {err}");
                     return new AdviceResult { debugInput = inputJson, summary = "获取建议失败", suggestions = new List<string> { err } };
                 }
 
@@ -429,26 +463,25 @@ namespace Study.Services
                 AdviceResult result;
                 try 
                 {
-                    // Check if the response is wrapped in an "output" property (nested JSON)
-                    // The Coze stream response "content" might be a JSON object like {"output": "{\"summary\":...}"}
                     using var doc = JsonDocument.Parse(innerJson);
                     if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("output", out var outputElem))
                     {
-                        // The output field itself might be a JSON string that needs another round of parsing
                         var outputStr = outputElem.GetString();
                         if (!string.IsNullOrEmpty(outputStr))
                         {
-                             // Try to parse the inner JSON string
-                             try 
+                             if (outputStr.TrimStart().StartsWith("{"))
                              {
-                                 result = JsonSerializer.Deserialize<AdviceResult>(outputStr, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new AdviceResult();
+                                 try 
+                                 {
+                                     result = JsonSerializer.Deserialize<AdviceResult>(outputStr, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new AdviceResult();
+                                 }
+                                 catch
+                                 {
+                                     result = new AdviceResult { summary = outputStr };
+                                 }
                              }
-                             catch
+                             else
                              {
-                                 // If inner string is not JSON, maybe it's just the summary text?
-                                 // But based on user input, it looks like JSON.
-                                 // Let's assume if it fails, we treat it as summary text if it looks like text?
-                                 // For now, let's stick to the structure we saw.
                                  result = new AdviceResult { summary = outputStr };
                              }
                         }
@@ -459,15 +492,27 @@ namespace Study.Services
                     }
                     else
                     {
-                        // Fallback: try to deserialize directly (maybe structure changed or it's flat)
-                        result = JsonSerializer.Deserialize<AdviceResult>(innerJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new AdviceResult();
+                        try 
+                        {
+                            result = JsonSerializer.Deserialize<AdviceResult>(innerJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new AdviceResult();
+                        }
+                        catch
+                        {
+                             result = new AdviceResult { summary = "解析失败", debugInput = innerJson };
+                        }
                     }
                 }
                 catch (Exception jsonEx)
                 {
-                     Console.WriteLine($"[COZE_ADVICE] JSON Parse Error: {jsonEx.Message}");
-                     Console.WriteLine($"[COZE_ADVICE] Bad JSON: {innerJson}");
+                     // Console.WriteLine($"[COZE_ADVICE] JSON Parse Error: {jsonEx.Message}");
+                     // Console.WriteLine($"[COZE_ADVICE] Bad JSON: {innerJson}");
                      return new AdviceResult { debugInput = inputJson, summary = "解析建议失败", suggestions = new List<string> { jsonEx.Message, "Raw JSON:", innerJson } };
+                }
+
+                // Final cleaning of the summary before returning
+                if (!string.IsNullOrEmpty(result.summary))
+                {
+                    result.summary = CleanMarkdown(result.summary);
                 }
 
                 result.debugInput = inputJson;
@@ -475,7 +520,7 @@ namespace Study.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[COZE_ADVICE] Exception: {ex.Message}");
+                // Console.WriteLine($"[COZE_ADVICE] Exception: {ex.Message}");
                 return new AdviceResult { debugInput = inputJson, summary = "系统错误", suggestions = new List<string> { ex.Message } };
             }
         }

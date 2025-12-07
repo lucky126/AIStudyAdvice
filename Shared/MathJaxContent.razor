@@ -21,7 +21,7 @@
             try 
             {
                 // Try to fix missing delimiters for mixed text/math content
-                var processedContent = FixMathContent(Content);
+                var processedContent = Study.Shared.MathHelper.FixMathContent(Content);
                 
                 // Encode content to prevent HTML tag interpretation (e.g. <m)
                 // We assume Content is raw text with LaTeX, not HTML
@@ -36,44 +36,5 @@
         }
     }
 
-    private string FixMathContent(string input)
-    {
-        if (string.IsNullOrEmpty(input)) return input;
-
-        // If already has delimiters, assume it's well-formed and don't touch it
-        if (input.Contains("$") || input.Contains("\\(") || input.Contains("\\["))
-            return input;
-
-        // Check if it contains math-like characters that suggest it needs formatting
-        // We look for backslashes (LaTeX commands) or common math operators
-        bool hasMath = input.Contains("\\") || input.Contains("<") || input.Contains(">") || 
-                      input.Contains("=") || input.Contains("^");
-        
-        if (!hasMath) return input;
-
-        // Regex to match potential math segments
-        // We match sequences that are NOT:
-        // - CJK Unified Ideographs (4E00-9FFF)
-        // - CJK Symbols and Punctuation (3000-303F)
-        // - Fullwidth Forms (FF00-FFEF) (e.g. ，：？)
-        // - Newlines
-        // This allows ASCII, Greek, Latin-1 Supplement (like ²), etc. to be grouped as math.
-        return Regex.Replace(input, @"([^\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\r\n]+)", m => {
-            var val = m.Value;
-            if (string.IsNullOrWhiteSpace(val)) return val;
-            
-            // Extract leading and trailing whitespace to preserve them outside the math delimiter
-            var leading = new string(val.TakeWhile(char.IsWhiteSpace).ToArray());
-            var trailing = new string(val.Reverse().TakeWhile(char.IsWhiteSpace).Reverse().ToArray());
-            
-            // Get the core content
-            var middle = val.Trim();
-            if (string.IsNullOrEmpty(middle)) return val;
-
-            // Fix common unicode superscripts/symbols that might break standard MathJax or look wrong
-            middle = middle.Replace("²", "^2").Replace("³", "^3");
-
-            return $"{leading}\\({middle}\\){trailing}";
-        });
-    }
+    // Private helper moved to Shared/MathHelper.cs
 }

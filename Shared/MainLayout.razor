@@ -16,13 +16,27 @@
             <div class="d-flex align-items-center gap-3">
                 @if (isLoggedIn)
                 {
-                    <div class="d-flex align-items-center text-secondary">
-                        <span class="oi oi-person me-1"></span>
-                        <span class="fw-bold">@username</span>
+                    <div class="dropdown">
+                        <button class="btn bg-white border dropdown-toggle d-flex align-items-center gap-2 rounded-pill px-3 py-2 shadow-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 24px; height: 24px;">
+                                <span class="oi oi-person" style="font-size: 0.8rem;"></span>
+                            </div>
+                            <span class="fw-bold text-secondary small">@username</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                            <li>
+                                <a class="dropdown-item" href="/change-password">
+                                    <span class="oi oi-key me-2"></span>修改密码
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <button class="dropdown-item text-danger" @onclick="Logout">
+                                    <span class="oi oi-account-logout me-2"></span>退出登录
+                                </button>
+                            </li>
+                        </ul>
                     </div>
-                    <button class="btn btn-sm btn-outline-danger rounded-pill px-3" @onclick="Logout">
-                        <span class="oi oi-account-logout me-1"></span>退出
-                    </button>
                 }
                 else
                 {
@@ -79,7 +93,8 @@
         if (AuthStateTask != null)
         {
             var state = await AuthStateTask;
-            isLoggedIn = state.User.Identity?.IsAuthenticated ?? false;
+            // Check for User role specifically
+            isLoggedIn = state.User.IsInRole("User");
             if (isLoggedIn)
             {
                 var nicknameClaim = state.User.FindFirst("Nickname");
