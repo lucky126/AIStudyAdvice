@@ -69,3 +69,5 @@ upload_to_server.ps1
 update_app.sh
 project.tar.gz
 .env
+
+deploy_manual.ps1
