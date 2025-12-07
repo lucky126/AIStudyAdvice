@@ -1,4 +1,5 @@
 @page "/dashboard"
+@using Markdig
 @inject IJSRuntime JS
 @inject HttpClient Http
 @inject NavigationManager Nav
@@ -145,11 +146,13 @@
                         </div>
                         <div class="card-body">
                             <div class="p-3 bg-light rounded-3">
-                                <p class="lead fs-6 mb-3" style="white-space: pre-wrap;">@advice.summary</p>
-                                <ul class="mb-0 ps-3">
+                                <div class="lead fs-6 mb-3 advice-content">
+                                    @((MarkupString)Markdown.ToHtml(advice.summary ?? ""))
+                                </div>
+                                <ul class="mb-0 ps-3 advice-suggestions">
                                     @foreach (var tip in advice.suggestions)
                                     {
-                                        <li class="mb-2">@tip</li>
+                                        <li class="mb-2">@((MarkupString)Markdown.ToHtml(tip ?? ""))</li>
                                     }
                                 </ul>
                             </div>
@@ -209,6 +212,13 @@
     /* Fix for relative positioning for stretched-link */
     tr {
         position: relative;
+    }
+    .advice-content p:last-child {
+        margin-bottom: 0;
+    }
+    .advice-suggestions li p {
+        margin-bottom: 0;
+        display: inline;
     }
 </style>
 
