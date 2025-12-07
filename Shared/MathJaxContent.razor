@@ -59,19 +59,21 @@
         // - Newlines
         // This allows ASCII, Greek, Latin-1 Supplement (like ²), etc. to be grouped as math.
         return Regex.Replace(input, @"([^\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\r\n]+)", m => {
-            if (string.IsNullOrWhiteSpace(m.Value)) return m.Value;
-            
             var val = m.Value;
-            var trimmed = val.Trim();
+            if (string.IsNullOrWhiteSpace(val)) return val;
             
-            // Skip pure whitespace
-            if (string.IsNullOrEmpty(trimmed)) return val;
+            // Extract leading and trailing whitespace to preserve them outside the math delimiter
+            var leading = new string(val.TakeWhile(char.IsWhiteSpace).ToArray());
+            var trailing = new string(val.Reverse().TakeWhile(char.IsWhiteSpace).Reverse().ToArray());
             
-            // Preserve leading/trailing spaces outside the math delimiter
-            var startSpace = val.Substring(0, val.IndexOf(trimmed));
-            var endSpace = val.Substring(val.LastIndexOf(trimmed) + trimmed.Length);
-            
-            return $"{startSpace}\\({trimmed}\\){endSpace}";
+            // Get the core content
+            var middle = val.Trim();
+            if (string.IsNullOrEmpty(middle)) return val;
+
+            // Fix common unicode superscripts/symbols that might break standard MathJax or look wrong
+            middle = middle.Replace("²", "^2").Replace("³", "^3");
+
+            return $"{leading}\\({middle}\\){trailing}";
         });
     }
 }
