@@ -120,10 +120,13 @@ AI 学习助手是一个基于 .NET 9 和 Blazor Server 构建的智能学习辅
 ### 部署步骤
 
 1. **修改配置**
-   编辑 `docker-compose.yml`，设置 `COZE_API_KEY` 或在环境变量中设置。
+   编辑 `docker-compose.yml`，设置 Coze 相关环境变量。建议在生产环境中使用 `.env` 文件或直接设置系统环境变量。
    ```yaml
    environment:
      - Coze__ApiKey=你的Coze_API_Key
+     - Coze__WorkflowIdParse=你的试卷解析工作流ID
+     - Coze__WorkflowIdGenerate=你的题目生成工作流ID
+     - Coze__WorkflowIdAdvice=你的学习建议工作流ID
    ```
 
 2. **运行部署脚本**

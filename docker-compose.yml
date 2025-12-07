@@ -16,6 +16,9 @@ services:
       - Admin__Username=admin
       - Admin__Password=bUUlwqIfm+HMqeQfOqQC4HZe5fzD5/6jShabFzCuOG4=
       - Coze__ApiKey=${COZE_API_KEY:-your_api_key_here}
+      - Coze__WorkflowIdParse=${COZE_WORKFLOW_ID_PARSE:-7578452014024294400}
+      - Coze__WorkflowIdGenerate=${COZE_WORKFLOW_ID_GENERATE:-7580358154127753242}
+      - Coze__WorkflowIdAdvice=${COZE_WORKFLOW_ID_ADVICE:-7580943813242847270}
     depends_on:
       db:
         condition: service_healthy

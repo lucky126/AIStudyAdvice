@@ -60,3 +60,11 @@ nunit-*.xml
 appsettings.json
 appsettings.Development.json
 *.db
+
+# Volcano Deployment Files (Local Only)
+DEPLOY_VOLCANO.md
+docker-compose.prod.yml
+setup_server.sh
+upload_to_server.ps1
+project.tar.gz
+.env
