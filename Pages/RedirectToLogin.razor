@@ -1,6 +1,7 @@
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IJSRuntime JS
+@using Study.Services
 
 @code {
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -15,21 +16,24 @@
             }
 
             // 2. 双重检查：直接询问浏览器 LocalStorage 是否有 Token
-            // 这是为了防止 Blazor Server 尚未完成状态同步时误判为未登录
             try 
             {
                 var userSession = await JS.InvokeAsync<string>("localStorage.getItem", "UserSession");
                 var adminSession = await JS.InvokeAsync<string>("localStorage.getItem", "AdminSession");
 
-                // 如果本地存储有数据，说明用户应该是登录状态，暂时不跳转，等待 StateProvider 同步
                 if (!string.IsNullOrEmpty(userSession) || !string.IsNullOrEmpty(adminSession))
                 {
+                    // 关键修复：如果 JS 发现有 Token 但 C# 没读到，强制触发一次状态加载
+                    if (AuthStateProvider is CustomAuthenticationStateProvider customProvider)
+                    {
+                        await customProvider.LoadStateAsync();
+                    }
                     return; 
                 }
             }
             catch
             {
-                // 如果 JS 调用失败，忽略错误，继续执行跳转逻辑
+                // 忽略 JS 错误
             }
 
             // 3. 确认未登录，执行跳转

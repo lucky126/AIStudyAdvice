@@ -36,12 +36,15 @@
     private string password = "";
     private string error = "";
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        if (authState.User.Identity?.IsAuthenticated == true)
+        if (firstRender)
         {
-            Nav.NavigateTo("/", true);
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.Identity?.IsAuthenticated == true)
+            {
+                Nav.NavigateTo("/", true);
+            }
         }
     }
 
