@@ -24,11 +24,11 @@ namespace Study.Services
 
         private async Task<ClaimsPrincipal> BuildPrincipalAsync()
         {
-            try
-            {
-                var identities = new List<ClaimsIdentity>();
+            var identities = new List<ClaimsIdentity>();
 
-                // 1. Try Load User Session
+            // 1. Try Load User Session
+            try 
+            {
                 var userSessionResult = await _localStorage.GetAsync<UserSession>("UserSession");
                 var userSession = userSessionResult.Success ? userSessionResult.Value : null;
 
@@ -48,11 +48,20 @@ namespace Study.Services
                 }
                 else if (userSession != null)
                 {
-                    _logger.LogInformation("User session expired or invalid.");
+                    // Expired
                     await _localStorage.DeleteAsync("UserSession");
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"UserSession retrieval failed (likely DataProtection): {ex.Message}");
+                // If session is corrupted (e.g. key mismatch), delete it so it doesn't block auth
+                try { await _localStorage.DeleteAsync("UserSession"); } catch {}
+            }
 
-                // 2. Try Load Admin Session
+            // 2. Try Load Admin Session
+            try
+            {
                 var adminSessionResult = await _localStorage.GetAsync<UserSession>("AdminSession");
                 var adminSession = adminSessionResult.Success ? adminSessionResult.Value : null;
 
@@ -67,34 +76,23 @@ namespace Study.Services
                 }
                 else if (adminSession != null)
                 {
-                    _logger.LogInformation("Admin session expired or invalid.");
+                    // Expired
                     await _localStorage.DeleteAsync("AdminSession");
                 }
-
-                if (identities.Count > 0)
-                {
-                    return new ClaimsPrincipal(identities);
-                }
-
-                return _anonymous;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"Authentication state retrieval failed: {ex.Message}");
-                
-                // 如果发生异常（如 Data Protection Key 不匹配），尝试清理可能损坏的 Session
-                try 
-                {
-                    await _localStorage.DeleteAsync("UserSession");
-                    await _localStorage.DeleteAsync("AdminSession");
-                }
-                catch
-                {
-                    // 忽略清理过程中的错误
-                }
-
-                return _anonymous;
+                _logger.LogWarning($"AdminSession retrieval failed (likely DataProtection): {ex.Message}");
+                // If session is corrupted, delete it
+                try { await _localStorage.DeleteAsync("AdminSession"); } catch {}
             }
+
+            if (identities.Count > 0)
+            {
+                return new ClaimsPrincipal(identities);
+            }
+
+            return _anonymous;
         }
 
         public async Task LoadStateAsync()

@@ -1,5 +1,6 @@
 @page "/advice"
 @using Markdig
+@attribute [Authorize(Roles = "User")]
 @using Study.Services
 @inject IJSRuntime JS
 @inject HttpClient Http

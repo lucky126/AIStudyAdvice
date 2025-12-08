@@ -38,14 +38,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
-        {
-            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-            if (authState.User.Identity?.IsAuthenticated == true)
-            {
-                Nav.NavigateTo("/", true);
-            }
-        }
+        // 移除自动跳转逻辑，允许已登录用户访问登录页
     }
 
     private async Task Enter(KeyboardEventArgs e)
@@ -72,7 +65,13 @@
                     UserId = user.Id.ToString(),
                     Nickname = user.Nickname
                 });
-                Nav.NavigateTo("/", true);
+                
+                // 给 JS 一点时间写入 LocalStorage
+                await Task.Delay(100);
+                
+                // 使用 SPA 导航而不是强制刷新，以保留当前的内存状态
+                // 这样即使 LocalStorage 写入慢一点，当前会话也是有效的
+                Nav.NavigateTo("/");
             }
             else
             {

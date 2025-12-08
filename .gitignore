@@ -71,3 +71,4 @@ project.tar.gz
 .env
 
 deploy_manual.ps1
+.deploy_temp/

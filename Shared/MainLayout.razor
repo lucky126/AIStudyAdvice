@@ -78,10 +78,10 @@
     </main>
 
     <footer class="bg-white border-top py-3 mt-auto">
-        <div class="container text-center text-muted small">
-            &copy; 2025 智能学习分析系统 | Version 1.0.2
-        </div>
-    </footer>
+    <div class="container text-center text-muted small">
+        &copy; 2025 智能学习分析系统 | Version 1.0.2.202512071640
+    </div>
+</footer>
 </div>
 
 @code {
@@ -136,6 +136,21 @@
                 var uri = Nav.Uri;
                 var u = new Uri(uri);
                 var path = u.AbsolutePath.ToLowerInvariant();
+                
+                // Safety check: If we are on login/register/admin pages, do NOT redirect.
+                // This handles cases where MainLayout might be inadvertently applied.
+                if (path.Contains("/login") || path.Contains("/register") || path.StartsWith("/admin"))
+                {
+                    return;
+                }
+
+                // FIX: If not logged in, do not enforce selection redirect.
+                // This prevents MainLayout from interfering with RedirectToLogin or other unauthenticated flows.
+                if (!isLoggedIn)
+                {
+                    return;
+                }
+
                 var hasSelection = !string.IsNullOrEmpty(subject) && grade > 0;
                 var onHome = path == "/";
                 

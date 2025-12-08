@@ -1,6 +1,6 @@
 @page "/dashboard"
 @using Markdig
-@attribute [Authorize]
+@attribute [Authorize(Roles = "User")]
 @inject IJSRuntime JS
 @inject HttpClient Http
 @inject NavigationManager Nav

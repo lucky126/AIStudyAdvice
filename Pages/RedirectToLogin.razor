@@ -49,21 +49,37 @@
             
             if (isAuthenticated)
             {
-                Log("User is already authenticated. Stopping redirect.");
-                return;
+                Log("User is authenticated but Not Authorized for this page.");
+                try {
+                    foreach(var claim in authState.User.Claims)
+                    {
+                        Log($"Claim: {claim.Type} = {claim.Value}");
+                    }
+                } catch {}
+                
+                // Do not return, allow redirection to login page with different role or permissions
             }
 
             // 2. 双重检查：直接询问浏览器 LocalStorage 是否有 Token
             bool sessionFound = false;
             try 
             {
-                var userSession = await JS.InvokeAsync<string>("localStorage.getItem", "UserSession");
-                var adminSession = await JS.InvokeAsync<string>("localStorage.getItem", "AdminSession");
-                
-                Log($"LocalStorage UserSession: {(string.IsNullOrEmpty(userSession) ? "null" : "Found")}");
-                Log($"LocalStorage AdminSession: {(string.IsNullOrEmpty(adminSession) ? "null" : "Found")}");
+                // Only check LocalStorage if NOT authenticated (or if we suspect partial auth)
+                if (!isAuthenticated)
+                {
+                    var userSession = await JS.InvokeAsync<string>("localStorage.getItem", "UserSession");
+                        var adminSession = await JS.InvokeAsync<string>("localStorage.getItem", "AdminSession");
+                        
+                        Log($"LocalStorage UserSession: {(string.IsNullOrEmpty(userSession) ? "null" : "Found")}");
+                        Log($"LocalStorage AdminSession: {(string.IsNullOrEmpty(adminSession) ? "null" : "Found")}");
 
-                if (!string.IsNullOrEmpty(userSession) || !string.IsNullOrEmpty(adminSession))
+                        // 调试：列出所有 Key
+                        try {
+                            var keys = await JS.InvokeAsync<List<string>>("eval", "Object.keys(localStorage)");
+                            Log($"All Keys in LS: {string.Join(", ", keys)}");
+                        } catch {}
+
+                        if (!string.IsNullOrEmpty(userSession) || !string.IsNullOrEmpty(adminSession))
                 {
                     sessionFound = true;
                     // 如果 JS 发现有 Token 但 C# 没读到，强制触发一次状态加载
@@ -93,36 +109,82 @@
                     }
                 }
             }
+            }
             catch (Exception ex)
             {
                 Log($"Error checking LocalStorage: {ex.Message}");
             }
 
-            // 3. 确认未登录（或者尝试加载 Session 失败），执行跳转
+            // 3. Determine Redirection Logic based on "Two Systems" requirement
             Log("Preparing to redirect...");
-            for (int i = 5; i > 0; i--)
-            {
-                if (paused) 
-                {
-                    Log("Redirect paused by user.");
-                    while(paused) await Task.Delay(500);
-                    Log("Resuming...");
-                }
-                
-                Log($"Redirecting in {i}s...");
-                await Task.Delay(1000);
-            }
-
+            
             var uri = Nav.Uri;
-            if (uri.ToLower().Contains("/admin"))
+            var uriPath = new Uri(uri).AbsolutePath.ToLowerInvariant();
+            var isTargetingAdmin = uriPath.StartsWith("/admin");
+            
+            // Check current roles
+            var isAdmin = authState.User.IsInRole("Admin");
+            var isUser = authState.User.IsInRole("User");
+            
+            string targetUrl = null;
+
+            if (isTargetingAdmin)
             {
-                Log("Redirecting to /admin/login");
-                Nav.NavigateTo("/admin/login", true);
+                // We are targeting Admin area
+                // If we are NOT an admin, go to Admin Login
+                if (!isAdmin)
+                {
+                    targetUrl = "/admin/login";
+                }
+                else
+                {
+                    Log("User IS Admin but still landed on RedirectToLogin. Access Denied for other reasons?");
+                    // Maybe just stay or go to admin home?
+                    // targetUrl = "/admin/login"; // Safe fallback
+                }
             }
             else
             {
-                Log("Redirecting to /login");
-                Nav.NavigateTo("/login", true);
+                // We are targeting User area
+                // If we are NOT a user, go to User Login
+                if (!isUser)
+                {
+                    targetUrl = "/login";
+                }
+                else
+                {
+                    Log("User IS User but still landed on RedirectToLogin. Access Denied for other reasons?");
+                }
+            }
+
+            if (targetUrl != null)
+            {
+                // Avoid infinite loops if we are already there
+                if (uriPath.EndsWith(targetUrl.ToLowerInvariant()))
+                {
+                     Log($"Already on target page ({targetUrl}). Stopping redirect loop.");
+                     return;
+                }
+
+                for (int i = 3; i > 0; i--)
+                {
+                    if (paused) 
+                    {
+                        Log("Redirect paused by user.");
+                        while(paused) await Task.Delay(500);
+                        Log("Resuming...");
+                    }
+                    
+                    Log($"Redirecting to {targetUrl} in {i}s...");
+                    await Task.Delay(1000);
+                }
+                
+                Log($"Redirecting to {targetUrl}");
+                Nav.NavigateTo(targetUrl, true);
+            }
+            else
+            {
+                Log("No redirection target determined. Staying on page.");
             }
         }
     }

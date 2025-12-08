@@ -64,7 +64,9 @@
                 Username = username,
                 Role = "Admin"
             }, "AdminSession");
-            Nav.NavigateTo("/admin", true);
+            
+            await Task.Delay(100);
+            Nav.NavigateTo("/admin");
         }
         else
         {
