@@ -9,115 +9,60 @@
     </div>
     <h5 class="text-secondary mb-2">正在验证身份...</h5>
     <p class="text-muted small">如果长时间未跳转，请 <a href="/login" class="text-primary text-decoration-none">点击这里登录</a></p>
-    
-    <div class="card mt-4 p-3 bg-white shadow-sm" style="max-width: 600px; width: 90%;">
-        <h6 class="border-bottom pb-2 mb-2">调试日志 (Debug Log)</h6>
-        <div class="small text-muted" style="max-height: 200px; overflow-y: auto; font-family: monospace;">
-            @foreach (var log in logs)
-            {
-                <div>@log</div>
-            }
-        </div>
-        <div class="mt-2 text-end">
-            <button class="btn btn-sm btn-secondary" @onclick="@(() => paused = !paused)">
-                @(paused ? "继续跳转" : "暂停跳转")
-            </button>
-        </div>
-    </div>
 </div>
 
 @code {
-    private List<string> logs = new List<string>();
-    private bool paused = false;
-
-    private void Log(string message)
-    {
-        logs.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
-        StateHasChanged();
-    }
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            Log("RedirectToLogin initialized.");
-            
             // 1. 先检查 C# 状态
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
-            Log($"C# AuthState: {isAuthenticated}");
             
             if (isAuthenticated)
             {
-                Log("User is authenticated but Not Authorized for this page.");
-                try {
-                    foreach(var claim in authState.User.Claims)
-                    {
-                        Log($"Claim: {claim.Type} = {claim.Value}");
-                    }
-                } catch {}
-                
                 // Do not return, allow redirection to login page with different role or permissions
             }
 
             // 2. 双重检查：直接询问浏览器 LocalStorage 是否有 Token
-            bool sessionFound = false;
             try 
             {
                 // Only check LocalStorage if NOT authenticated (or if we suspect partial auth)
                 if (!isAuthenticated)
                 {
                     var userSession = await JS.InvokeAsync<string>("localStorage.getItem", "UserSession");
-                        var adminSession = await JS.InvokeAsync<string>("localStorage.getItem", "AdminSession");
+                    var adminSession = await JS.InvokeAsync<string>("localStorage.getItem", "AdminSession");
                         
-                        Log($"LocalStorage UserSession: {(string.IsNullOrEmpty(userSession) ? "null" : "Found")}");
-                        Log($"LocalStorage AdminSession: {(string.IsNullOrEmpty(adminSession) ? "null" : "Found")}");
-
-                        // 调试：列出所有 Key
-                        try {
-                            var keys = await JS.InvokeAsync<List<string>>("eval", "Object.keys(localStorage)");
-                            Log($"All Keys in LS: {string.Join(", ", keys)}");
-                        } catch {}
-
-                        if (!string.IsNullOrEmpty(userSession) || !string.IsNullOrEmpty(adminSession))
-                {
-                    sessionFound = true;
-                    // 如果 JS 发现有 Token 但 C# 没读到，强制触发一次状态加载
-                    if (AuthStateProvider is CustomAuthenticationStateProvider customProvider)
+                    if (!string.IsNullOrEmpty(userSession) || !string.IsNullOrEmpty(adminSession))
                     {
-                        Log("Attempting to reload state from LocalStorage...");
-                        await customProvider.LoadStateAsync();
-                        
-                        // 给一点时间让状态更新生效
-                        await Task.Delay(500);
-                        
-                        // 再次检查状态
-                        authState = await AuthStateProvider.GetAuthenticationStateAsync();
-                        isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
-                        Log($"Re-check C# AuthState after reload: {isAuthenticated}");
-                        
-                        if (isAuthenticated)
+                        // 如果 JS 发现有 Token 但 C# 没读到，强制触发一次状态加载
+                        if (AuthStateProvider is CustomAuthenticationStateProvider customProvider)
                         {
-                            Log("Authentication restored! Page should reload automatically.");
-                            // 认证成功，页面会自动刷新到 Authorized 视图，无需手动跳转
-                            return;
-                        }
-                        else
-                        {
-                             Log("Authentication failed even after reload. Session might be invalid.");
+                            await customProvider.LoadStateAsync();
+                            
+                            // 给一点时间让状态更新生效
+                            await Task.Delay(500);
+                            
+                            // 再次检查状态
+                            authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                            isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
+                            
+                            if (isAuthenticated)
+                            {
+                                // 认证成功，页面会自动刷新到 Authorized 视图，无需手动跳转
+                                return;
+                            }
                         }
                     }
                 }
             }
-            }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Log($"Error checking LocalStorage: {ex.Message}");
+                // Ignore errors
             }
 
             // 3. Determine Redirection Logic based on "Two Systems" requirement
-            Log("Preparing to redirect...");
-            
             var uri = Nav.Uri;
             var uriPath = new Uri(uri).AbsolutePath.ToLowerInvariant();
             var isTargetingAdmin = uriPath.StartsWith("/admin");
@@ -136,12 +81,6 @@
                 {
                     targetUrl = "/admin/login";
                 }
-                else
-                {
-                    Log("User IS Admin but still landed on RedirectToLogin. Access Denied for other reasons?");
-                    // Maybe just stay or go to admin home?
-                    // targetUrl = "/admin/login"; // Safe fallback
-                }
             }
             else
             {
@@ -151,10 +90,6 @@
                 {
                     targetUrl = "/login";
                 }
-                else
-                {
-                    Log("User IS User but still landed on RedirectToLogin. Access Denied for other reasons?");
-                }
             }
 
             if (targetUrl != null)
@@ -162,29 +97,12 @@
                 // Avoid infinite loops if we are already there
                 if (uriPath.EndsWith(targetUrl.ToLowerInvariant()))
                 {
-                     Log($"Already on target page ({targetUrl}). Stopping redirect loop.");
                      return;
                 }
 
-                for (int i = 3; i > 0; i--)
-                {
-                    if (paused) 
-                    {
-                        Log("Redirect paused by user.");
-                        while(paused) await Task.Delay(500);
-                        Log("Resuming...");
-                    }
-                    
-                    Log($"Redirecting to {targetUrl} in {i}s...");
-                    await Task.Delay(1000);
-                }
-                
-                Log($"Redirecting to {targetUrl}");
+                // Short delay to ensure UI renders
+                await Task.Delay(500);
                 Nav.NavigateTo(targetUrl, true);
-            }
-            else
-            {
-                Log("No redirection target determined. Staying on page.");
             }
         }
     }
