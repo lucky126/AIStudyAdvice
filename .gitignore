@@ -60,6 +60,7 @@ nunit-*.xml
 appsettings.json
 appsettings.Development.json
 *.db
+DataProtection-Keys/
 
 # Volcano Deployment Files (Local Only)
 DEPLOY_VOLCANO.md

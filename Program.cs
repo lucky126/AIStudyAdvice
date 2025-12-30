@@ -62,49 +62,19 @@ if (!app.Environment.IsDevelopment())
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
+    // Initialize Database
     try
-    {       
-        db.Database.ExecuteSqlRaw(@"
-            CREATE TABLE IF NOT EXISTS ""Users"" (
-                ""Id"" serial PRIMARY KEY,
-                ""Username"" text NOT NULL,
-                ""PasswordHash"" text NOT NULL,
-                ""Nickname"" text,
-                ""RegistrationTime"" timestamp with time zone NOT NULL,
-                ""UsedInvitationCode"" text,
-                ""LoginCount"" integer NOT NULL DEFAULT 0,
-                ""LastLoginTime"" timestamp with time zone,
-                ""IsActive"" boolean NOT NULL DEFAULT TRUE
-            );
-            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Users_Username"" ON ""Users"" (""Username"");
-
-            CREATE TABLE IF NOT EXISTS ""InvitationCodes"" (
-                ""Id"" serial PRIMARY KEY,
-                ""Code"" character varying(8) NOT NULL,
-                ""IsUsed"" boolean NOT NULL DEFAULT FALSE,
-                ""UsedByUsername"" text,
-                ""UsedTime"" timestamp with time zone,
-                ""CreatedTime"" timestamp with time zone NOT NULL
-            );
-            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_InvitationCodes_Code"" ON ""InvitationCodes"" (""Code"");
-
-            CREATE TABLE IF NOT EXISTS ""AdviceHistories"" (
-                ""Id"" serial PRIMARY KEY,
-                ""UserId"" text NOT NULL,
-                ""Grade"" text,
-                ""Subject"" text,
-                ""Textbook"" text,
-                ""RequestHash"" text NOT NULL,
-                ""ResponseContent"" text NOT NULL,
-                ""CreateTime"" timestamp with time zone NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS ""IX_AdviceHistories_Lookup"" ON ""AdviceHistories"" (""UserId"", ""Grade"", ""Subject"", ""Textbook"", ""RequestHash"");
-        ");
+    {
+        Console.WriteLine("[DB INIT] Checking database...");
+        
+        // Apply Migrations (creates DB if not exists, updates schema if exists)
+        // Does NOT drop tables or wipe data unless a specific migration does so.
+        await db.Database.MigrateAsync();
+        Console.WriteLine("[DB INIT] Database migration check completed.");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Migration warning: {ex.Message}");
+        Console.WriteLine($"[DB INIT] Error: {ex.Message}");
     }
     
     // Cleanup bad cache entries (containing system errors)
@@ -189,23 +159,23 @@ app.MapPost("/api/upload", async (AppDbContext db, CozeService coze, UploadDto d
     await UpdateKnowledgeStats(db, dto.UserId ?? "demo_user", dto.Grade, dto.Subject, toAdd);
     Console.WriteLine("[UPLOAD] knowledge stats updated");
 
-    return Results.Ok(new
-    {
-        paperId,
-        questions = toAdd.Select(q => new
+        return Results.Ok(new
         {
-            q.QuestionId,
-            q.Content,
-            q.UserAnswer,
-            q.IsCorrect,
-            q.CorrectAnswer,
-            q.KnowledgePoint,
-            q.Subject,
-            q.Grade,
-            q.QuestionType,
-            q.ErrorAnalysis
-        })
-    });
+            paperId,
+            questions = toAdd.Select(q => new
+            {
+                q.QuestionId,
+                q.Content,
+                q.UserAnswer,
+                q.IsCorrect,
+                q.CorrectAnswer,
+                q.KnowledgePoint,
+                q.Subject,
+                q.Grade,
+                q.QuestionType,
+                q.ErrorAnalysis
+            })
+        });
 });
 
 app.MapGet("/api/analytics", async (AppDbContext db, int grade, string subject, string? userId) =>
@@ -514,8 +484,10 @@ static async Task UpdateKnowledgeStats(AppDbContext db, string userId, int grade
     foreach (var g in grouped)
     {
         var kp = g.Key;
-        var total = g.Count();
-        var correct = g.Count(q => q.IsCorrect == true);
+        // Only count leaf questions (exclude pure containers)
+        var leaf = g.Where(q => q.IsCorrect != null || q.UserAnswer != null || q.CorrectAnswer != null).ToList();
+        var total = leaf.Count;
+        var correct = leaf.Count(q => q.IsCorrect == true);
         var accuracy = total == 0 ? 0 : (double)correct / total;
 
         var stat = await db.KnowledgeStats
