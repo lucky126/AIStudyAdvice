@@ -9,8 +9,8 @@ echo "[2/3] Stop old container if exists"
 docker rm -f web || true
 
 echo "[3/3] Run container with host network and fixed env"
-# Allow DB_PASSWORD to be overridden by environment variable, default to 'postgres'
-DB_PASSWORD="${DB_PASSWORD:-postgres}"
+# Allow DB_PASSWORD to be overridden by environment variable, default to '123456'
+DB_PASSWORD="${DB_PASSWORD:-123456}"
 
 docker run -d --name web --network host \
   -e ASPNETCORE_ENVIRONMENT=Production \
