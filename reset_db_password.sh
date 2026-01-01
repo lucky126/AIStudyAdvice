@@ -12,7 +12,16 @@ if [ -n "$CONTAINER_ID" ]; then
     
     if [ $? -eq 0 ]; then
         echo "✅ Password reset successfully!"
-        exit 0
+        
+        # Verify connection
+        echo "Verifying connection..."
+        if docker exec $CONTAINER_ID psql -U postgres -c "\l" > /dev/null 2>&1; then
+             echo "✅ Connection verification passed!"
+             exit 0
+        else
+             echo "⚠️  Password reset worked, but local connection verification failed."
+             echo "    This might be due to pg_hba.conf restrictions."
+        fi
     else
         echo "❌ Failed to reset password via Docker."
     fi

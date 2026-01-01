@@ -6,13 +6,16 @@ echo "[1/3] Build image"
 docker build -t study-app .
 
 echo "[2/3] Stop old container if exists"
-docker rm -f aistudyadvice-web-1 || true
+docker rm -f web || true
 
 echo "[3/3] Run container with host network and fixed env"
-docker run -d --name aistudyadvice-web-1 --network host \
+# Allow DB_PASSWORD to be overridden by environment variable, default to 'postgres'
+DB_PASSWORD="${DB_PASSWORD:-postgres}"
+
+docker run -d --name web --network host \
   -e ASPNETCORE_ENVIRONMENT=Production \
   -e ASPNETCORE_URLS=http://0.0.0.0:80 \
-  -e ConnectionStrings__Postgres="Host=127.0.0.1;Port=5432;Database=studydb;Username=postgres;Password=postgres" \
+  -e ConnectionStrings__Postgres="Host=127.0.0.1;Port=5432;Database=studydb;Username=postgres;Password=${DB_PASSWORD}" \
   -e LocalApiUrl=http://localhost:80 \
   -e Admin__Username=admin \
   -e Admin__Password="bUUlwqIfm+HMqeQfOqQC4HZe5fzD5/6jShabFzCuOG4=" \
